@@ -20,3 +20,4 @@
 /native_client/javascript/build
 /native_client/javascript/deepspeech_wrap.cxx
 sftp-config.json
+native_client/prebuilt_binaries/*
