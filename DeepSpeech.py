@@ -29,6 +29,8 @@ from util.text import sparse_tensor_value_to_texts, wer, levenshtein, Alphabet, 
 from xdg import BaseDirectory as xdg
 import numpy as np
 
+import logging
+
 
 # Importer
 # ========
@@ -1804,6 +1806,14 @@ def do_single_file_inference(input_file_path):
 
 
 def main(_) :
+
+    global log
+    log = logging.getLogger(__name__)
+
+    logging.basicConfig(
+        level=FLAGS.log_level,
+        format='[%(asctime)s] | line %(lineno)d | %(levelname)s | %(message)s',
+        datefmt='%H:%M:%S')
 
     initialize_globals()
 
