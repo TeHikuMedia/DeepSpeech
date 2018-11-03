@@ -1815,9 +1815,14 @@ def main(_) :
         format='[%(asctime)s] | line %(lineno)d | %(levelname)s | %(message)s',
         datefmt='%H:%M:%S')
 
+    log.info("Intializing globals...")
+
     initialize_globals()
 
+    log.info("Globals initialized!")
+
     if FLAGS.train or FLAGS.test:
+        log.info("FLAGS.train: %s\nFLAGS.test: %s", FLAGS.train, FLAGS.test)
         if len(FLAGS.worker_hosts) == 0:
             # Only one local task: this process (default case - no cluster)
             train()
