@@ -1596,6 +1596,7 @@ def train(server=None):
                                                checkpoint_dir=FLAGS.checkpoint_dir,
                                                save_checkpoint_secs=None, # already taken care of by a hook
                                                config=session_config) as session:
+            log.info("Entered MonitoredTrainingSession")
             if len(FLAGS.initialize_from_frozen_model) > 0:
                 log_info('Initializing from frozen model: {}'.format(FLAGS.initialize_from_frozen_model))
                 feed_dict = {}
@@ -1822,9 +1823,9 @@ def main(_) :
     log.info("Globals initialized!")
 
     if FLAGS.train or FLAGS.test:
-        log.info("FLAGS.train: %s\nFLAGS.test: %s", FLAGS.train, FLAGS.test)
+        log.info("FLAGS.train: %s, FLAGS.test: %s", FLAGS.train, FLAGS.test)
+        log.info("len(FLAGS.worker_hosts): %s", len(FLAGS.worker_hosts))
         if len(FLAGS.worker_hosts) == 0:
-            log.info("len(FLAGS.worker_hosts): %s", len(FLAGS.worker_hosts))
             # Only one local task: this process (default case - no cluster)
             train()
             log_debug('Done.')
