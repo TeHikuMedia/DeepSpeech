@@ -1824,6 +1824,7 @@ def main(_) :
     if FLAGS.train or FLAGS.test:
         log.info("FLAGS.train: %s\nFLAGS.test: %s", FLAGS.train, FLAGS.test)
         if len(FLAGS.worker_hosts) == 0:
+            log.info("len(FLAGS.worker_hosts): %s", len(FLAGS.worker_hosts))
             # Only one local task: this process (default case - no cluster)
             train()
             log_debug('Done.')
