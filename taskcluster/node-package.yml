@@ -16,8 +16,7 @@ build:
   system_config:
     >
       ${swig.patch_nodejs.linux}
-  tensorflow: "https://index.taskcluster.net/v1/task/project.deepspeech.tensorflow.pip.r1.6.c346f2c8fdedbbfdc1a551e193552d26cf30eb9c.cpu/artifacts/public/home.tar.xz"
-  summarize_graph: "https://index.taskcluster.net/v1/task/project.deepspeech.tensorflow.pip.r1.6.c346f2c8fdedbbfdc1a551e193552d26cf30eb9c.cpu/artifacts/public/summarize_graph"
+  tensorflow: "https://index.taskcluster.net/v1/task/project.deepspeech.tensorflow.pip.r1.12.bea86c1e884730cf7f8615eb24d31872c198c766.cpu/artifacts/public/home.tar.xz"
   scripts:
     build: "taskcluster/node-build.sh"
     package: "taskcluster/node-package.sh"

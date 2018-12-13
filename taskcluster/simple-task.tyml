@@ -26,6 +26,7 @@ then:
     { $eval: build.routes }
 
   payload:
+    upload_targets: { $eval: build.upload_targets }
     artifacts_deps:
       python:
         $map: { $eval: build.artifacts_deps.python }
@@ -33,6 +34,10 @@ then:
           $eval: as_slugid(b)
       javascript:
         $map: { $eval: build.artifacts_deps.javascript }
+        each(b):
+          $eval: as_slugid(b)
+      cpp:
+        $map: { $eval: build.artifacts_deps.cpp }
         each(b):
           $eval: as_slugid(b)
 

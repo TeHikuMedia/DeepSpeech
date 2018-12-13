@@ -1,6 +1,6 @@
 # Project DeepSpeech
 
-[![Documentation Status](https://readthedocs.org/projects/deepspeech/badge/?version=master)](http://deepspeech.readthedocs.io/?badge=master)
+[![Documentation Status](https://readthedocs.org/projects/deepspeech/badge/?version=latest)](http://deepspeech.readthedocs.io/?badge=latest)
 [![Task Status](https://github.taskcluster.net/v1/repository/mozilla/DeepSpeech/master/badge.svg)](https://github.taskcluster.net/v1/repository/mozilla/DeepSpeech/master/latest)
 
 Project DeepSpeech is an open source Speech-To-Text engine, using a model trained by machine learning techniques, based on [Baidu's Deep Speech research paper](https://arxiv.org/abs/1412.5567). Project DeepSpeech uses Google's [TensorFlow](https://www.tensorflow.org/) project to make the implementation easier.
@@ -45,8 +45,9 @@ See the output of `deepspeech -h` for more information on the use of `deepspeech
   - [Training a model](#training-a-model)
   - [Checkpointing](#checkpointing)
   - [Exporting a model for inference](#exporting-a-model-for-inference)
+  - [Exporting a model for TFLite](#exporting-a-model-for-tflite)
   - [Distributed computing across more than one machine](#distributed-training-across-more-than-one-machine)
-  - [Continuing training from a frozen graph](#continuing-training-from-a-frozen-graph)
+  - [Continuing training from a release model](#continuing-training-from-a-release-model)
 - [Code documentation](#code-documentation)
 - [Contact/Getting Help](#contactgetting-help)
 
@@ -54,6 +55,7 @@ See the output of `deepspeech -h` for more information on the use of `deepspeech
 
 * [Python 3.6](https://www.python.org/)
 * [Git Large File Storage](https://git-lfs.github.com/)
+* Mac or Linux environment
 
 ## Getting the code
 
@@ -68,7 +70,7 @@ git clone https://github.com/mozilla/DeepSpeech
 If you want to use the pre-trained English model for performing speech-to-text, you can download it (along with other important inference material) from the [DeepSpeech releases page](https://github.com/mozilla/DeepSpeech/releases). Alternatively, you can run the following command to download and unzip the files in your current directory:
 
 ```bash
-wget -O - https://github.com/mozilla/DeepSpeech/releases/download/v0.1.1/deepspeech-0.1.1-models.tar.gz | tar xvfz -
+wget -O - https://github.com/mozilla/DeepSpeech/releases/download/v0.3.0/deepspeech-0.3.0-models.tar.gz | tar xvfz -
 ```
 
 ## Using the model
@@ -211,13 +213,13 @@ cd DeepSpeech
 pip3 install -r requirements.txt
 ```
 
-You'll also need to download `native_client.tar.xz` or build the native client files yourself to get the custom TensorFlow OP needed for decoding the outputs of the neural network. You can use `util/taskcluster.py` to download the files for your architecture:
+You'll also need to install the `ds_ctcdecoder` Python package which is required for decoding the outputs of the acoustic model into text. We have binaries available in our CI infrastructure, you can use `util/taskcluster.py` to get a URL to the decoder package. When you pass the `--decoder` option, the script will print the URL to the appropriate decoder package for your platform and Python version:
 
 ```bash
-python3 util/taskcluster.py --target .
+pip3 install $(python3 util/taskcluster.py --decoder)
 ```
 
-This will download the native client files for the x86_64 architecture without CUDA support, and extract them into the current folder. If you prefer building the binaries from source, see the [native_client README file](native_client/README.md). We also have binaries with CUDA enabled ("--arch gpu") and for ARM7 ("--arch arm").
+This command will download and install the `ds_ctcdecoder` package. If you prefer building the binaries from source, see the [native_client README file](native_client/README.md). You can override the platform with `--arch` if you want the package for ARM7 (`--arch arm`) or ARM64 (`--arch arm64`).
 
 ### Recommendations
 
@@ -225,7 +227,7 @@ If you have a capable (Nvidia, at least 8GB of VRAM) GPU, it is highly recommend
 
 ```bash
 pip3 uninstall tensorflow
-pip3 install 'tensorflow-gpu==1.6.0'
+pip3 install 'tensorflow-gpu==1.12.0rc2'
 ```
 
 ### Common Voice training data
@@ -282,7 +284,7 @@ If you are brave enough, you can also include the `other` dataset, which contain
 The central (Python) script is `DeepSpeech.py` in the project's root directory. For its list of command line options, you can call:
 
 ```bash
-./DeepSpeech.py --help
+./DeepSpeech.py --helpfull
 ```
 
 To get the output of this in a slightly better-formatted way, you can also look up the option definitions top of `DeepSpeech.py`.
@@ -316,12 +318,16 @@ Be aware however that checkpoints are only valid for the same model geometry the
 If the `--export_dir` parameter is provided, a model will have been exported to this directory during training.
 Refer to the corresponding [README.md](native_client/README.md) for information on building and running a client that can use the exported model.
 
+### Exporting a model for TFLite
+
+If you want to experiment with the TF Lite engine, you need to export a model that is compatible with it, then use the `--export_tflite` flag. If you already have a trained model, you can re-export it for TFLite by running `DeepSpeech.py` again and specifying the same `checkpoint_dir` that you used for training, as well as passing `--notrain --notest --export_tflite --export_dir /model/export/destination`.
+
 ### Making a mmap-able model for inference
 
 The `output_graph.pb` model file generated in the above step will be loaded in memory to be dealt with when running inference.
 This will result in extra loading time and memory consumption. One way to avoid this is to directly read data from the disk.
 
-TensorFlow has tooling to achieve this: it requires building the target `//tensorflow/contrib/util:convert_graphdef_memmapped_format` (binaries are produced by our TaskCluster for some systems including Linux/amd64 and macOS/amd64), use `util/taskcluster.py` tool to download, specifying `tensorflow` as a source.
+TensorFlow has tooling to achieve this: it requires building the target `//tensorflow/contrib/util:convert_graphdef_memmapped_format` (binaries are produced by our TaskCluster for some systems including Linux/amd64 and macOS/amd64), use `util/taskcluster.py` tool to download, specifying `tensorflow` as a source and `convert_graphdef_memmapped_format` as artifact.
 Producing a mmap-able model is as simple as:
 ```
 $ convert_graphdef_memmapped_format --in_graph=output_graph.pb --out_graph=output_graph.pbmm
@@ -352,18 +358,18 @@ $ run-cluster.sh 1:2:1 --epoch 10
 Be aware that for the help example to be able to run, you need at least two `CUDA` capable GPUs (2 workers times 1 GPU). The script utilizes environment variable `CUDA_VISIBLE_DEVICES` for `DeepSpeech.py` to see only the provided number of GPUs per worker.
 The script is meant to be a template for your own distributed computing instrumentation. Just modify the startup code for the different servers (workers and parameter servers) accordingly. You could use SSH or something similar for running them on your remote hosts.
 
-### Continuing training from a frozen graph
+### Continuing training from a release model
 
-If you'd like to use one of the pre-trained models released by Mozilla to bootstrap your training process (transfer learning, fine tuning), you can do so by using the `--initialize_from_frozen_model` flag in `DeepSpeech.py`. For best results, make sure you're passing an empty `--checkpoint_dir` when resuming from a frozen model.
+If you'd like to use one of the pre-trained models released by Mozilla to bootstrap your training process (transfer learning, fine tuning), you can do so by using the `--checkpoint_dir` flag in `DeepSpeech.py`. Specify the path where you downloaded the checkpoint from the release, and training will resume from the pre-trained model.
 
 For example, if you want to fine tune the entire graph using your own data in `my-train.csv`, `my-dev.csv` and `my-test.csv`, for three epochs, you can something like the following, tuning the hyperparameters as needed:
 
 ```bash
 mkdir fine_tuning_checkpoints
-python3 DeepSpeech.py --n_hidden 2048 --initialize_from_frozen_model path/to/model/output_graph.pb --checkpoint_dir fine_tuning_checkpoints --epoch 3 --train_files my-train.csv --dev_files my-dev.csv --test_files my_dev.csv --learning_rate 0.0001
+python3 DeepSpeech.py --n_hidden 2048 --checkpoint_dir path/to/checkpoint/folder --epoch -3 --train_files my-train.csv --dev_files my-dev.csv --test_files my_dev.csv --learning_rate 0.0001
 ```
 
-Note: the released models were trained with `--n_hidden 2048`, so you need to use that same value when initializing from the release models.
+Note: the released models were trained with `--n_hidden 2048`, so you need to use that same value when initializing from the release models. Note as well the use of a negative epoch count -3 (meaning 3 more epochs) since the checkpoint you're loading from was already trained for several epochs.
 
 ## Code documentation
 

@@ -8,6 +8,21 @@
       ],
       "include_dirs": [
         "../"
+      ],
+      "conditions": [
+        [ "OS=='mac'", {
+            "xcode_settings": {
+              "OTHER_CXXFLAGS": [
+                "-stdlib=libc++",
+                "-mmacosx-version-min=10.10"
+              ],
+              "OTHER_LDFLAGS": [
+                "-stdlib=libc++",
+                "-mmacosx-version-min=10.10"
+              ]
+            }
+          }
+        ]
       ]
     },
     {
@@ -24,5 +39,6 @@
   ],
   "variables": {
     "build_v8_with_gn": 0,
+    "enable_lto": 1
   },
 }

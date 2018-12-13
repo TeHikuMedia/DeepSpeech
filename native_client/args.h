@@ -6,31 +6,26 @@
 
 #include "deepspeech.h"
 
-bool has_model = false;
-std::string model;
+char* model = NULL;
 
-bool has_alphabet = false;
-std::string alphabet;
+char* alphabet = NULL;
 
-bool has_lm = false;
-std::string lm;
+char* lm = NULL;
 
-bool has_trie = false;
-std::string trie;
+char* trie = NULL;
 
-bool has_audio = false;
-std::string audio;
+char* audio = NULL;
+
+bool load_without_trie = false;
 
 bool show_times = false;
 
 bool has_versions = false;
 
-using namespace DeepSpeech;
-
 void PrintHelp(const char* bin)
 {
     std::cout <<
-    "Usage: " << std::string(bin) << " --model MODEL --alphabet ALPHABET [--lm LM --trie TRIE] --audio AUDIO [-t]\n"
+    "Usage: " << bin << " --model MODEL --alphabet ALPHABET [--lm LM --trie TRIE] --audio AUDIO [-t]\n"
     "\n"
     "Running DeepSpeech inference.\n"
     "\n"
@@ -42,7 +37,7 @@ void PrintHelp(const char* bin)
     "	-t			Run in benchmark mode, output mfcc & inference time\n"
     "	--help			Show help\n"
     "	--version		Print version and exits\n";
-    print_versions();
+    DS_PrintVersions();
     exit(1);
 }
 
@@ -55,6 +50,7 @@ bool ProcessArgs(int argc, char** argv)
             {"lm", required_argument, nullptr, 'l'},
             {"trie", required_argument, nullptr, 'r'},
             {"audio", required_argument, nullptr, 'w'},
+            {"run_very_slowly_without_trie_I_really_know_what_Im_doing", no_argument, nullptr, 999},
             {"t", no_argument, nullptr, 't'},
             {"help", no_argument, nullptr, 'h'},
             {"version", no_argument, nullptr, 'v'},
@@ -71,28 +67,27 @@ bool ProcessArgs(int argc, char** argv)
         switch (opt)
         {
         case 'm':
-            model     = std::string(optarg);
-            has_model = true;
+            model = optarg;
             break;
 
         case 'a':
-            alphabet     = std::string(optarg);
-            has_alphabet = true;
+            alphabet = optarg;
             break;
 
         case 'l':
-            lm     = std::string(optarg);
-            has_lm = true;
+            lm = optarg;
             break;
 
         case 'r':
-            trie     = std::string(optarg);
-            has_trie = true;
+            trie = optarg;
             break;
 
         case 'w':
-            audio     = std::string(optarg);
-            has_audio = true;
+            audio = optarg;
+            break;
+
+        case 999:
+            load_without_trie = true;
             break;
 
         case 't':
@@ -112,11 +107,11 @@ bool ProcessArgs(int argc, char** argv)
     }
 
     if (has_versions) {
-        print_versions();
+        DS_PrintVersions();
         return false;
     }
 
-    if (!has_model || !has_alphabet || !has_audio || alphabet.length() == 0 || audio.length() == 0) {
+    if (!model || !alphabet || !audio) {
         PrintHelp(argv[0]);
         return false;
     }

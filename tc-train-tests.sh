@@ -5,8 +5,7 @@ set -xe
 source $(dirname "$0")/tc-tests-utils.sh
 
 pyver_full=$1
-tf=$2
-ds=$3
+ds=$2
 
 if [ -z "${pyver_full}" ]; then
     echo "No python version given, aborting."
@@ -42,40 +41,23 @@ PYTHON_CONFIGURE_OPTS="--enable-unicode=${pyconf}" pyenv install ${pyver}
 pyenv virtualenv ${pyver} ${PYENV_NAME}
 source ${PYENV_ROOT}/versions/${pyver}/envs/${PYENV_NAME}/bin/activate
 
-if [ "${tf}" = "mozilla" ]; then
-    pip install --upgrade ${TENSORFLOW_WHEEL} | cat
-    grep -v "tensorflow" ${HOME}/DeepSpeech/ds/requirements.txt | pip install --upgrade -r /dev/stdin | cat
-fi;
-
-if [ "${tf}" = "upstream" ]; then
-    pip install --upgrade -r ${HOME}/DeepSpeech/ds/requirements.txt | cat
-fi;
+pip install --upgrade -r ${HOME}/DeepSpeech/ds/requirements.txt | cat
 
 platform=$(python -c 'import sys; import platform; plat = platform.system().lower(); arch = platform.machine().lower(); plat = "manylinux1" if plat == "linux" and arch == "x86_64" else plat; plat = "macosx_10_10" if plat == "darwin" else plat; sys.stdout.write("%s_%s" % (plat, platform.machine()));')
 whl_ds_version="$(python -c 'from pkg_resources import parse_version; print(parse_version("'${DS_VERSION}'"))')"
-deepspeech_pkg="deepspeech-${whl_ds_version}-cp${pyver_pkg}-cp${pyver_pkg}${py_unicode_type}-${platform}.whl"
+decoder_pkg="ds_ctcdecoder-${whl_ds_version}-cp${pyver_pkg}-cp${pyver_pkg}${py_unicode_type}-${platform}.whl"
 
-if [ "${ds}" = "deepspeech" ]; then
-    pip install ${DEEPSPEECH_ARTIFACTS_ROOT}/${deepspeech_pkg} | cat
-    python -c "import tensorflow; from deepspeech.utils import audioToInputVector"
+decoder_pkg_url=${DECODER_ARTIFACTS_ROOT}/${decoder_pkg}
 
-    # Since this build depends on the completion of the whole deepspeech package
-    # and we might get into funny situation with --config=monolithic, then let's
-    # be extra-cautious and leverage our dependency against the build to also
-    # test with libctc_decoder_with_kenlm.so that is packaged for release
-    download_native_client_files "/tmp/ds"
-else
-    download_ctc_kenlm "/tmp/ds"
-fi;
+LD_LIBRARY_PATH=${PY37_LDPATH}:$LD_LIBRARY_PATH pip install --verbose --only-binary :all: ${PY37_SOURCE_PACKAGE} --upgrade ${decoder_pkg_url} | cat
 
 pushd ${HOME}/DeepSpeech/ds/
-    time ./bin/run-tc-ldc93s1.sh
+    time ./bin/run-tc-ldc93s1_new.sh 105
+    time ./bin/run-tc-ldc93s1_tflite.sh
 popd
 
-deactivate
-pyenv uninstall --force ${PYENV_NAME}
-
 cp /tmp/train/output_graph.pb ${TASKCLUSTER_ARTIFACTS}
+cp /tmp/train/output_graph.tflite ${TASKCLUSTER_ARTIFACTS}
 
 if [ ! -z "${CONVERT_GRAPHDEF_MEMMAPPED}" ]; then
   convert_graphdef=$(basename "${CONVERT_GRAPHDEF_MEMMAPPED}")
@@ -84,3 +66,10 @@ if [ ! -z "${CONVERT_GRAPHDEF_MEMMAPPED}" ]; then
   /tmp/${convert_graphdef} --in_graph=/tmp/train/output_graph.pb --out_graph=/tmp/train/output_graph.pbmm
   cp /tmp/train/output_graph.pbmm ${TASKCLUSTER_ARTIFACTS}
 fi;
+
+pushd ${HOME}/DeepSpeech/ds/
+    time ./bin/run-tc-ldc93s1_checkpoint.sh 105
+popd
+
+deactivate
+pyenv uninstall --force ${PYENV_NAME}
