@@ -151,12 +151,12 @@ assert_correct_multi_ldc93s1()
 
 assert_correct_ldc93s1_prodmodel()
 {
-  assert_correct_inference "$1" "she had a due in greasy wash water year"
+  assert_correct_inference "$1" "she had a due and greasy wash water year"
 }
 
 assert_correct_ldc93s1_prodmodel_stereo_44k()
 {
-  assert_correct_inference "$1" "she had a due in greasy wash water year"
+  assert_correct_inference "$1" "she had a due and greasy wash water year"
 }
 
 assert_correct_warning_upsampling()
@@ -373,6 +373,28 @@ verify_bazel_rebuild()
   fi;
 }
 
+# Should be called from context where Python virtualenv is set
+verify_ctcdecoder_url()
+{
+  default_url=$(python util/taskcluster.py --decoder)
+  echo "${default_url}" | grep -F "deepspeech.native_client.v${DS_VERSION}"
+  rc_default_url=$?
+
+  tag_url=$(python util/taskcluster.py --decoder --branch 'v1.2.3')
+  echo "${tag_url}" | grep -F "deepspeech.native_client.v1.2.3"
+  rc_tag_url=$?
+
+  master_url=$(python util/taskcluster.py --decoder --branch 'master')
+  echo "${master_url}" | grep -F "deepspeech.native_client.master"
+  rc_master_url=$?
+
+  if [ ${rc_default_url} -eq 0 -a ${rc_tag_url} -eq 0 -a ${rc_master_url} -eq 0 ]; then
+    return 0
+  else
+    return 1
+  fi;
+}
+
 do_bazel_build()
 {
   cd ${DS_ROOT_TASK}/DeepSpeech/tf
@@ -411,6 +433,21 @@ do_deepspeech_binary_build()
     EXTRA_LDFLAGS="${EXTRA_LOCAL_LDFLAGS}" \
     EXTRA_LIBS="${EXTRA_LOCAL_LIBS}" \
     deepspeech
+}
+
+do_deepspeech_ndk_build()
+{
+  arch_abi=$1
+
+  cd ${DS_DSDIR}/native_client/
+
+  ${ANDROID_NDK_HOME}/ndk-build \
+    APP_PLATFORM=android-21 \
+    APP_BUILD_SCRIPT=$(pwd)/Android.mk \
+    NDK_PROJECT_PATH=$(pwd) \
+    APP_STL=c++_shared \
+    TFDIR=${DS_TFDIR} \
+    TARGET_ARCH_ABI=${arch_abi}
 }
 
 # Hack to extract Ubuntu's 16.04 libssl 1.0.2 packages and use them during the
@@ -636,22 +673,42 @@ package_native_client()
     echo "Please specify artifact name."
   fi;
 
-  if [ -f "${tensorflow_dir}/bazel-bin/native_client/libdeepspeech_model.so" ]; then
-    tar -cf - \
-      -C ${tensorflow_dir}/bazel-bin/native_client/ generate_trie \
-      -C ${tensorflow_dir}/bazel-bin/native_client/ libdeepspeech.so \
-      -C ${tensorflow_dir}/bazel-bin/native_client/ libdeepspeech_model.so \
-      -C ${deepspeech_dir}/ LICENSE \
-      -C ${deepspeech_dir}/native_client/ deepspeech \
-      -C ${deepspeech_dir}/native_client/kenlm/ README.mozilla \
-      | pixz -9 > "${artifacts_dir}/${artifact_name}"
-  else
-    tar -cf - \
-      -C ${tensorflow_dir}/bazel-bin/native_client/ generate_trie \
-      -C ${tensorflow_dir}/bazel-bin/native_client/ libdeepspeech.so \
-      -C ${deepspeech_dir}/ LICENSE \
-      -C ${deepspeech_dir}/native_client/ deepspeech \
-      -C ${deepspeech_dir}/native_client/kenlm/ README.mozilla \
-      | pixz -9 > "${artifacts_dir}/${artifact_name}"
+  tar -cf - \
+    -C ${tensorflow_dir}/bazel-bin/native_client/ generate_trie \
+    -C ${tensorflow_dir}/bazel-bin/native_client/ libdeepspeech.so \
+    -C ${deepspeech_dir}/ LICENSE \
+    -C ${deepspeech_dir}/native_client/ deepspeech \
+    -C ${deepspeech_dir}/native_client/kenlm/ README.mozilla \
+    | pixz -9 > "${artifacts_dir}/${artifact_name}"
+}
+
+package_native_client_ndk()
+{
+  deepspeech_dir=${DS_DSDIR}
+  artifacts_dir=${TASKCLUSTER_ARTIFACTS}
+  artifact_name=$1
+  arch_abi=$2
+
+  if [ ! -d ${deepspeech_dir} -o ! -d ${artifacts_dir} ]; then
+    echo "Missing directory. Please check:"
+    echo "deepspeech_dir=${deepspeech_dir}"
+    echo "artifacts_dir=${artifacts_dir}"
+    exit 1
   fi;
+
+  if [ -z "${artifact_name}" ]; then
+    echo "Please specify artifact name."
+  fi;
+
+  if [ -z "${arch_abi}" ]; then
+    echo "Please specify arch abi."
+  fi;
+
+  tar -cf - \
+    -C ${deepspeech_dir}/native_client/libs/${arch_abi}/ deepspeech \
+    -C ${deepspeech_dir}/native_client/libs/${arch_abi}/ libdeepspeech.so \
+    -C ${deepspeech_dir}/native_client/libs/${arch_abi}/ libc++_shared.so \
+    -C ${deepspeech_dir}/ LICENSE \
+    -C ${deepspeech_dir}/native_client/kenlm/ README.mozilla \
+    | pixz -9 > "${artifacts_dir}/${artifact_name}"
 }

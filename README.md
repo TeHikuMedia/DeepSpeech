@@ -25,6 +25,8 @@ pip3 install deepspeech-gpu
 deepspeech --model models/output_graph.pbmm --alphabet models/alphabet.txt --lm models/lm.binary --trie models/trie --audio my_audio_file.wav
 ```
 
+Please ensure you have the required [CUDA dependency](#cuda-dependency).
+
 See the output of `deepspeech -h` for more information on the use of `deepspeech`. (If you experience problems running `deepspeech`, please check [required runtime dependencies](native_client/README.md#required-dependencies)).
 
 **Table of Contents**
@@ -32,6 +34,7 @@ See the output of `deepspeech -h` for more information on the use of `deepspeech
 - [Prerequisites](#prerequisites)
 - [Getting the code](#getting-the-code)
 - [Getting the pre-trained model](#getting-the-pre-trained-model)
+- [CUDA dependency](#cuda-dependency)
 - [Using the model](#using-the-model)
   - [Using the Python package](#using-the-python-package)
   - [Using the command line client](#using-the-command-line-client)
@@ -70,7 +73,8 @@ git clone https://github.com/mozilla/DeepSpeech
 If you want to use the pre-trained English model for performing speech-to-text, you can download it (along with other important inference material) from the [DeepSpeech releases page](https://github.com/mozilla/DeepSpeech/releases). Alternatively, you can run the following command to download and unzip the files in your current directory:
 
 ```bash
-wget -O - https://github.com/mozilla/DeepSpeech/releases/download/v0.3.0/deepspeech-0.3.0-models.tar.gz | tar xvfz -
+wget https://github.com/mozilla/DeepSpeech/releases/download/v0.4.1/deepspeech-0.4.1-models.tar.gz
+tar xvfz deepspeech-0.4.1-models.tar.gz
 ```
 
 ## Using the model
@@ -81,6 +85,10 @@ There are three ways to use DeepSpeech inference:
 - [The command-line client](#using-the-command-line-client)
 - [The Node.JS package](#using-the-nodejs-package)
 
+
+### CUDA dependency
+
+The GPU capable builds (Python, NodeJS, C++ etc) depend on the same CUDA runtime as upstream TensorFlow. Currently with TensorFlow r1.12 it depends on CUDA 9.0 and CuDNN v7.2.
 
 ### Using the Python package
 
@@ -133,6 +141,8 @@ $ pip3 install --upgrade deepspeech-gpu
 
 In both cases, it should take care of installing all the required dependencies. Once it is done, you should be able to call the sample binary using `deepspeech` on your command-line.
 
+Please ensure you have the required [CUDA dependency](#cuda-dependency).
+
 Note: the following command assumes you [downloaded the pre-trained model](#getting-the-pre-trained-model).
 
 ```bash
@@ -159,7 +169,7 @@ python3 util/taskcluster.py --arch osx --target .
 
 also, if you need some binaries different than current master, like `v0.2.0-alpha.6`, you can use `--branch`:
 ```bash
-python3 util/taskcluster.py --branch "v0.2.0-alpha.6 --target ."
+python3 util/taskcluster.py --branch "v0.2.0-alpha.6" --target "."
 ```
 
 This will download `native_client.tar.xz` which includes the deepspeech binary and associated libraries, and extract it into the current folder. `taskcluster.py` will download binaries for Linux/x86_64 by default, but you can override that behavior with the `--arch` parameter. See the help info with `python util/taskcluster.py -h` for more details. Proper DeepSpeech or TensorFlow's branch can be specified as well.
@@ -188,6 +198,8 @@ npm install deepspeech-gpu
 ```
 
 See [client.js](native_client/javascript/client.js) for an example of how to use the bindings.
+
+Please ensure you have the required [CUDA dependency](#cuda-dependency).
 
 ### Installing bindings from source
 
@@ -227,8 +239,10 @@ If you have a capable (Nvidia, at least 8GB of VRAM) GPU, it is highly recommend
 
 ```bash
 pip3 uninstall tensorflow
-pip3 install 'tensorflow-gpu==1.12.0rc2'
+pip3 install 'tensorflow-gpu==1.12.0'
 ```
+
+Please ensure you have the required [CUDA dependency](#cuda-dependency).
 
 ### Common Voice training data
 
