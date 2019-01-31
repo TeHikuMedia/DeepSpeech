@@ -12,11 +12,7 @@ def audiofile_to_input_vector(audio_filename, numcep, numcontext):
     in a numpy array.
     """
     # Load wav files
-    
-    try:
-        fs, audio = wav.read(audio_filename)
-    except:
-        raise ValueError("Unable to read %s" % audio_filename)
+    fs, audio = wav.read(audio_filename)
 
     # Get mfcc coefficients
     features = mfcc(audio, samplerate=fs, numcep=numcep, winlen=0.032, winstep=0.02, winfunc=np.hamming)

@@ -22,5 +22,3 @@ python -u DeepSpeech.py \
   --learning_rate 0.001 --dropout_rate 0.05  --export_dir '/tmp/train' \
   --lm_binary_path 'data/smoke_test/vocab.pruned.lm' \
   --lm_trie_path 'data/smoke_test/vocab.trie' \
-  --summary_dir '/home/ubuntu/tboard' \
-  --summary_secs 5 \

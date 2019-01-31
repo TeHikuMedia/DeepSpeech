@@ -8,7 +8,6 @@
 /runs
 /logs
 /exports
-/native_client/prebuilt-binaries
 /native_client/setup.cfg
 /native_client/build
 /native_client/*.egg-info
@@ -20,5 +19,3 @@
 /native_client/python/utils_wrap.cpp
 /native_client/javascript/build
 /native_client/javascript/deepspeech_wrap.cxx
-sftp-config.json
-native_client/prebuilt_binaries/*

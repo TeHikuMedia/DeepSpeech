@@ -25,12 +25,12 @@ def process_single_file(row, numcep, numcontext, alphabet):
     if features_len < len(transcript):
         raise ValueError('Error: Audio file {} is too short for transcription.'.format(file.wav_filename))
 
-    return features, features_len, transcript, len(transcript)
+    return file.wav_filename, features, features_len, transcript, len(transcript)
 
 
 # load samples from CSV, compute features, optionally cache results on disk
 def preprocess(csv_files, batch_size, numcep, numcontext, alphabet, hdf5_cache_path=None):
-    COLUMNS = ('features', 'features_len', 'transcript', 'transcript_len')
+    COLUMNS = ('wav_filename', 'features', 'features_len', 'transcript', 'transcript_len')
 
     print('Preprocessing', csv_files)
 
@@ -46,7 +46,7 @@ def preprocess(csv_files, batch_size, numcep, numcontext, alphabet, hdf5_cache_p
             for i in range(len(features)):
                 features[i] = np.reshape(features[i], [features_len[i], -1])
 
-            in_data = list(zip(features, features_len,
+            in_data = list(zip(wav_filename, features, features_len,
                                transcript, transcript_len))
             print('Loaded from cache at', hdf5_cache_path)
             return pandas.DataFrame(data=in_data, columns=COLUMNS)
@@ -54,9 +54,6 @@ def preprocess(csv_files, batch_size, numcep, numcontext, alphabet, hdf5_cache_p
     source_data = None
     for csv in csv_files:
         file = pandas.read_csv(csv, encoding='utf-8', na_filter=False)
-        #FIXME: not cross-platform
-        csv_dir = os.path.dirname(os.path.abspath(csv))
-        # file['wav_filename'] = file['wav_filename'].str.replace(r'(^[^/])', lambda m: os.path.join(csv_dir, m.group(1)))
         if source_data is None:
             source_data = file
         else:
@@ -72,7 +69,7 @@ def preprocess(csv_files, batch_size, numcep, numcontext, alphabet, hdf5_cache_p
         print('Saving to', hdf5_cache_path)
 
         # list of tuples -> tuple of lists
-        features, features_len, transcript, transcript_len = zip(*out_data)
+        wav_filename, features, features_len, transcript, transcript_len = zip(*out_data)
 
         with tables.open_file(hdf5_cache_path, 'w') as file:
             features_dset = file.create_vlarray(file.root,
