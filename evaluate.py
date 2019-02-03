@@ -73,12 +73,6 @@ def calculate_report(labels, decodings, distances, losses):
     # Getting the WER from the accumulated levenshteins and lengths
     samples_wer = total_levenshtein / total_label_length
 
-    # Order the remaining items by their loss (lowest loss on top)
-    samples.sort(key=lambda s: s.loss)
-
-    # Then order by WER (highest WER on top)
-    samples.sort(key=lambda s: s.wer, reverse=True)
-
     return samples_wer, samples
 
 
@@ -184,6 +178,16 @@ def evaluate(test_data, inference_graph):
     distances = [levenshtein(a, b) for a, b in zip(ground_truths, predictions)]
 
     wer, samples = calculate_report(ground_truths, predictions, distances, losses)
+
+    for i, sample in enumerate(samples):
+        sample['wav_filename'] = test_data.wav_filename.values[i]
+
+    # Order the remaining items by their loss (lowest loss on top)
+    samples.sort(key=lambda s: s.loss)
+
+    # Then order by WER (highest WER on top)
+    samples.sort(key=lambda s: s.wer, reverse=True)
+
     mean_edit_distance = np.mean(distances)
     mean_loss = np.mean(losses)
 

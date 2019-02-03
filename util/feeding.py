@@ -132,7 +132,7 @@ class _DataSetLoader(object):
         index = -1
         while not coord.should_stop():
             index = self._data_set.next_index(index) % file_count
-            features, num_strides, transcript, transcript_len = self._data_set.data.iloc[index]
+            wav_filename, features, num_strides, transcript, transcript_len = self._data_set.data.iloc[index]
 
             # Create a view into the array with overlapping strides of size
             # numcontext (past) + 1 (present) + numcontext (future)
