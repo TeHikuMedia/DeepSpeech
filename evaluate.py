@@ -200,6 +200,7 @@ def evaluate(test_data, inference_graph):
     for sample in report_samples:
         print('WER: %f, CER: %f, loss: %f' %
               (sample.wer, sample.distance, sample.loss))
+        print(' - file: "%s"' % sample.wav_filename)
         print(' - src: "%s"' % sample.src)
         print(' - res: "%s"' % sample.res)
         print('-' * 80)
@@ -233,7 +234,7 @@ def main(_):
 
     if FLAGS.test_output_file:
         # Save decoded tuples as JSON, converting NumPy floats to Python floats
-        json.dump(samples, open(FLAGS.test_output_file, 'w'), default=lambda x: float(x))
+        json.dump(samples, open(FLAGS.test_output_file, 'w', encoding='utf-8'), default=lambda x: float(x))
 
 
 if __name__ == '__main__':

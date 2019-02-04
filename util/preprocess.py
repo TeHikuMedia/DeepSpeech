@@ -28,9 +28,6 @@ def process_single_file(row, numcep, numcontext, alphabet):
     return file.wav_filename, features, features_len, transcript, len(transcript)
 
 
-
-
-
 # load samples from CSV, compute features, optionally cache results on disk
 def preprocess(csv_files, batch_size, numcep, numcontext, alphabet, hdf5_cache_path=None):
     COLUMNS = ('wav_filename', 'features', 'features_len', 'transcript', 'transcript_len')
