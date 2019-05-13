@@ -3,14 +3,30 @@
 load("@org_tensorflow//tensorflow:tensorflow.bzl",
      "tf_cc_shared_object", "if_cuda")
 
-load("@org_tensorflow//tensorflow/contrib/lite:build_def.bzl",
+load("@org_tensorflow//tensorflow/lite:build_def.bzl",
      "tflite_copts", "tflite_linkopts")
+
+config_setting(
+    name = "tflite",
+    define_values = {
+        "runtime": "tflite"
+    },
+)
 
 genrule(
     name = "ds_git_version",
     outs = ["ds_version.h"],
     cmd = "$(location :ds_git_version.sh) >$@",
-    tools = [":ds_git_version.sh"]
+    tools = [":ds_git_version.sh"],
+    local = 1,
+)
+
+genrule(
+    name = "ds_graph_version",
+    outs = ["ds_graph_version.h"],
+    cmd = "$(location :ds_graph_version.sh) >$@",
+    tools = [":ds_graph_version.sh"],
+    local = 1,
 )
 
 KENLM_SOURCES = glob(["kenlm/lm/*.cc", "kenlm/util/*.cc", "kenlm/util/double-conversion/*.cc",
@@ -54,15 +70,8 @@ tf_cc_shared_object(
     srcs = ["deepspeech.cc",
             "deepspeech.h",
             "alphabet.h",
-            "c_speech_features/c_speech_features.cpp",
-            "kiss_fft130/kiss_fft.c",
-            "kiss_fft130/tools/kiss_fftr.c",
-            "c_speech_features/c_speech_features.h",
-            "c_speech_features/c_speech_features_config.h",
-            "kiss_fft130/kiss_fft.h",
-            "kiss_fft130/_kiss_fft_guts.h",
-            "kiss_fft130/tools/kiss_fftr.h",
-            "ds_version.h"] +
+            "ds_version.h",
+            "ds_graph_version.h"] +
             DECODER_SOURCES,
     copts = select({ 
         # -fvisibility=hidden is not required on Windows, MSCV hides all declarations by default
@@ -70,6 +79,9 @@ tf_cc_shared_object(
         # -Wno-sign-compare to silent a lot of warnings from tensorflow itself,
         # which makes it harder to see our own warnings
         "//conditions:default": ["-Wno-sign-compare", "-fvisibility=hidden"],
+    }) + select({
+        "//native_client:tflite": [ "-DUSE_TFLITE" ],
+        "//conditions:default": [ "-UUSE_TFLITE" ]
     }) + tflite_copts(),
     linkopts = select({
         "//tensorflow:darwin": [],
@@ -80,8 +92,8 @@ tf_cc_shared_object(
         "//conditions:default": []
     }) + tflite_linkopts(),
     deps = select({
-        "//tensorflow:android": [
-            "//tensorflow/contrib/lite/kernels:builtin_ops",
+        "//native_client:tflite": [
+            "//tensorflow/lite/kernels:builtin_ops",
         ],
         "//conditions:default": [
             "//tensorflow/core:core_cpu",
@@ -108,6 +120,10 @@ tf_cc_shared_object(
             "//tensorflow/core/kernels:control_flow_ops",   # Enter
             "//tensorflow/core/kernels:tile_ops",           # Tile
             "//tensorflow/core/kernels:gather_op",          # Gather
+            "//tensorflow/core/kernels:mfcc_op",            # Mfcc
+            "//tensorflow/core/kernels:spectrogram_op",     # AudioSpectrogram
+            "//tensorflow/core/kernels:strided_slice_op",   # StridedSlice
+            "//tensorflow/core/kernels:slice_op",           # Slice, needed by StridedSlice
             "//tensorflow/contrib/rnn:lstm_ops_kernels",    # BlockLSTM
             "//tensorflow/core/kernels:random_ops",         # RandomGammaGrad
             "//tensorflow/core/kernels:pack_op",            # Pack
@@ -119,7 +135,7 @@ tf_cc_shared_object(
     }) + if_cuda([
             "//tensorflow/core:core",
     ]),
-    includes = ["c_speech_features", "kiss_fft130"] + DECODER_INCLUDES,
+    includes = DECODER_INCLUDES,
     defines = ["KENLM_MAX_ORDER=6"],
 )
 

@@ -1,7 +1,16 @@
+import os
+import platform
+
+# On Windows, we can't rely on RPATH being set to $ORIGIN/lib/ or on
+# @loader_path/lib but we can change the PATH to include the proper directory
+# for the dynamic linker
+if platform.system().lower() == "windows":
+    dslib_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'lib')
+    os.environ['PATH'] = dslib_path + ';' + os.environ['PATH']
+
 import deepspeech
 
 # rename for backwards compatibility
-from deepspeech.impl import AudioToInputVector as audioToInputVector
 from deepspeech.impl import PrintVersions as printVersions
 
 class Model(object):
@@ -25,6 +34,9 @@ class Model(object):
     def stt(self, *args, **kwargs):
         return deepspeech.impl.SpeechToText(self._impl, *args, **kwargs)
 
+    def sttWithMetadata(self, *args, **kwargs):
+        return deepspeech.impl.SpeechToTextWithMetadata(self._impl, *args, **kwargs)
+
     def setupStream(self, pre_alloc_frames=150, sample_rate=16000):
         status, ctx = deepspeech.impl.SetupStream(self._impl,
                                                   aPreAllocFrames=pre_alloc_frames,
@@ -41,3 +53,6 @@ class Model(object):
 
     def finishStream(self, *args, **kwargs):
         return deepspeech.impl.FinishStream(*args, **kwargs)
+
+    def finishStreamWithMetadata(self, *args, **kwargs):
+        return deepspeech.impl.FinishStreamWithMetadata(*args, **kwargs)

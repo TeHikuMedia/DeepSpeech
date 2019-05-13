@@ -12,13 +12,17 @@ if [ ! -f "${ldc93s1_dir}/ldc93s1.csv" ]; then
     python -u bin/import_ldc93s1.py ${ldc93s1_dir}
 fi;
 
-python -u DeepSpeech.py \
+# Force only one visible device because we have a single-sample dataset
+# and when trying to run on multiple devices (like GPUs), this will break
+export CUDA_VISIBLE_DEVICES=0
+
+python -u DeepSpeech.py --noshow_progressbar --noearly_stop \
   --train_files ${ldc93s1_csv} --train_batch_size 1 \
+  --feature_cache '/tmp/ldc93s1_cache' \
   --dev_files ${ldc93s1_csv} --dev_batch_size 1 \
   --test_files ${ldc93s1_csv} --test_batch_size 1 \
-  --n_hidden 494 --epoch $epoch_count --random_seed 4567 \
-  --default_stddev 0.046875 --max_to_keep 1 \
-  --checkpoint_dir '/tmp/ckpt' \
+  --n_hidden 100 --epochs $epoch_count \
+  --max_to_keep 1 --checkpoint_dir '/tmp/ckpt' \
   --learning_rate 0.001 --dropout_rate 0.05  --export_dir '/tmp/train' \
   --lm_binary_path 'data/smoke_test/vocab.pruned.lm' \
-  --lm_trie_path 'data/smoke_test/vocab.trie' \
+  --lm_trie_path 'data/smoke_test/vocab.trie'

@@ -2,21 +2,33 @@
 #include <stdio.h>
 
 #include <assert.h>
-#include <dirent.h>
 #include <errno.h>
 #include <math.h>
 #include <string.h>
-#ifndef __ANDROID__
-#include <sox.h>
-#endif // __ANDROID__
 #include <time.h>
-#include <unistd.h>
-
 #include <sys/types.h>
 #include <sys/stat.h>
 
 #include <sstream>
 #include <string>
+
+#if defined(__ANDROID__) || defined(_MSC_VER)
+#define NO_SOX
+#endif
+
+#if defined(_MSC_VER)
+#define NO_DIR
+#endif
+
+#ifndef NO_SOX
+#include <sox.h>
+#endif
+
+#ifndef NO_DIR
+#include <dirent.h>
+#include <unistd.h>
+#endif // NO_DIR
+#include <vector>
 
 #include "deepspeech.h"
 #include "args.h"
@@ -32,15 +44,35 @@ typedef struct {
   double cpu_time_overall;
 } ds_result;
 
+struct meta_word {
+  std::string word;
+  float start_time;
+  float duration;
+};
+
+char* metadataToString(Metadata* metadata);
+std::vector<meta_word> WordsFromMetadata(Metadata* metadata);
+char* JSONOutput(Metadata* metadata);
+
 ds_result
 LocalDsSTT(ModelState* aCtx, const short* aBuffer, size_t aBufferSize,
-           int aSampleRate)
+           int aSampleRate, bool extended_output, bool json_output)
 {
   ds_result res = {0};
 
   clock_t ds_start_time = clock();
 
-  res.string = DS_SpeechToText(aCtx, aBuffer, aBufferSize, aSampleRate);
+  if (extended_output) {
+    Metadata *metadata = DS_SpeechToTextWithMetadata(aCtx, aBuffer, aBufferSize, aSampleRate);
+    res.string = metadataToString(metadata);
+    DS_FreeMetadata(metadata);
+  } else if (json_output) {
+    Metadata *metadata = DS_SpeechToTextWithMetadata(aCtx, aBuffer, aBufferSize, aSampleRate);
+    res.string = JSONOutput(metadata);
+    DS_FreeMetadata(metadata);
+  } else {
+    res.string = DS_SpeechToText(aCtx, aBuffer, aBufferSize, aSampleRate);
+  }
 
   clock_t ds_end_infer = clock();
 
@@ -61,7 +93,7 @@ GetAudioBuffer(const char* path)
 {
   ds_audio_buffer res = {0};
 
-#ifndef __ANDROID__
+#ifndef NO_SOX
   sox_format_t* input = sox_open_read(path, NULL, NULL, NULL);
   assert(input);
 
@@ -150,9 +182,9 @@ GetAudioBuffer(const char* path)
   // Close sox handles
   sox_close(output);
   sox_close(input);
-#endif // __ANDROID__
+#endif // NO_SOX
 
-#ifdef __ANDROID__
+#ifdef NO_SOX
   // FIXME: Hack and support only 16kHz mono 16-bits PCM
   FILE* wave = fopen(path, "r");
 
@@ -160,19 +192,15 @@ GetAudioBuffer(const char* path)
 
   unsigned short audio_format;
   fseek(wave, 20, SEEK_SET); rv = fread(&audio_format, 2, 1, wave);
-  assert(rv == 2);
 
   unsigned short num_channels;
   fseek(wave, 22, SEEK_SET); rv = fread(&num_channels, 2, 1, wave);
-  assert(rv == 2);
 
   unsigned int sample_rate;
   fseek(wave, 24, SEEK_SET); rv = fread(&sample_rate, 4, 1, wave);
-  assert(rv == 2);
 
   unsigned short bits_per_sample;
   fseek(wave, 34, SEEK_SET); rv = fread(&bits_per_sample, 2, 1, wave);
-  assert(rv == 2);
 
   assert(audio_format == 1); // 1 is PCM
   assert(num_channels == 1); // MONO
@@ -185,16 +213,14 @@ GetAudioBuffer(const char* path)
   fprintf(stderr, "bits_per_sample=%d\n", bits_per_sample);
 
   fseek(wave, 40, SEEK_SET); rv = fread(&res.buffer_size, 4, 1, wave);
-  assert(rv == 2);
   fprintf(stderr, "res.buffer_size=%ld\n", res.buffer_size);
 
   fseek(wave, 44, SEEK_SET);
   res.buffer = (char*)malloc(sizeof(char) * res.buffer_size);
   rv = fread(res.buffer, sizeof(char), res.buffer_size, wave);
-  assert(rv == res.buffer_size);
 
   fclose(wave);
-#endif // __ANDROID__
+#endif // NO_SOX
 
 #ifdef __APPLE__
   res.buffer_size = (size_t)(output->olength * 2);
@@ -219,18 +245,102 @@ ProcessFile(ModelState* context, const char* path, bool show_times)
   ds_result result = LocalDsSTT(context,
                                 (const short*)audio.buffer,
                                 audio.buffer_size / 2,
-                                audio.sample_rate);
+                                audio.sample_rate,
+                                extended_metadata,
+                                json_output);
   free(audio.buffer);
 
   if (result.string) {
     printf("%s\n", result.string);
-    free((void*)result.string);
+    DS_FreeString((char*)result.string);
   }
 
   if (show_times) {
     printf("cpu_time_overall=%.05f\n",
            result.cpu_time_overall);
   }
+}
+
+char*
+metadataToString(Metadata* metadata)
+{
+  std::string retval = "";
+  for (int i = 0; i < metadata->num_items; i++) {
+    MetadataItem item = metadata->items[i];
+    retval += item.character;
+  }
+  return strdup(retval.c_str());
+}
+
+std::vector<meta_word>
+WordsFromMetadata(Metadata* metadata)
+{
+  std::vector<meta_word> word_list;
+
+  std::string word = "";
+  float word_start_time = 0;
+
+  // Loop through each character
+  for (int i = 0; i < metadata->num_items; i++) {
+    MetadataItem item = metadata->items[i];
+
+    // Append character to word if it's not a space
+    if (strcmp(item.character, " ") != 0 
+        && strcmp(item.character, u8"　") != 0) {
+      word.append(item.character);
+    }
+
+    // Word boundary is either a space or the last character in the array
+    if (strcmp(item.character, " ") == 0
+        || strcmp(item.character, u8" ") == 0
+        || i == metadata->num_items-1) {
+
+      float word_duration = item.start_time - word_start_time;
+
+      if (word_duration < 0) {
+        word_duration = 0;
+      }
+
+      meta_word w;
+      w.word = word;
+      w.start_time = word_start_time;
+      w.duration = word_duration;
+
+      word_list.push_back(w);
+
+      // Reset
+      word = "";
+      word_start_time = 0;
+    } else {
+      if (word.length() == 1) {
+        word_start_time = item.start_time; // Log the start time of the new word
+      }
+    }
+  }
+
+  return word_list;
+}
+
+char* 
+JSONOutput(Metadata* metadata)
+{
+  std::vector<meta_word> words = WordsFromMetadata(metadata);
+
+  std::ostringstream out_string;
+  out_string << R"({"metadata":{"confidence":)" << metadata->probability << R"(},"words":[)";
+
+  for (int i = 0; i < words.size(); i++) {
+    meta_word w = words[i];
+    out_string << R"({"word":")" << w.word << R"(","time":)" << w.start_time << R"(,"duration":)" << w.duration << "}";
+
+    if (i < words.size() - 1) {
+      out_string << ",";
+    }
+  }
+  
+  out_string << "]}\n";
+
+  return strdup(out_string.str().c_str());
 }
 
 int
@@ -261,8 +371,10 @@ main(int argc, char **argv)
     }
   }
 
+#ifndef NO_SOX
   // Initialise SOX
   assert(sox_init() == SOX_SUCCESS);
+#endif
 
   struct stat wav_info;
   if (0 != stat(audio, &wav_info)) {
@@ -270,11 +382,14 @@ main(int argc, char **argv)
   }
 
   switch (wav_info.st_mode & S_IFMT) {
+#ifndef _MSC_VER
     case S_IFLNK:
+#endif
     case S_IFREG:
         ProcessFile(ctx, audio, show_times);
       break;
 
+#ifndef NO_DIR
     case S_IFDIR:
         {
           printf("Running on directory %s\n", audio);
@@ -297,16 +412,17 @@ main(int argc, char **argv)
           closedir(wav_dir);
         }
       break;
+#endif
 
     default:
         printf("Unexpected type for %s: %d\n", audio, (wav_info.st_mode & S_IFMT));
       break;
   }
 
-#ifndef __ANDROID__
+#ifndef NO_SOX
   // Deinitialise and quit
   sox_quit();
-#endif // __ANDROID__
+#endif // NO_SOX
 
   DS_DestroyModel(ctx);
 

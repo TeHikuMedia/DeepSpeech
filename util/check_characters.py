@@ -1,47 +1,56 @@
-import csv
-import sys
-import glob
-
-'''
+"""
 Usage: $ python3 check_characters.py "INFILE"
- e.g.  $ python3 ../DeepSpeech/util/check_characters.py "/home/data/*.csv" 
- e.g.  $ python3 ../DeepSpeech/util/check_characters.py "/home/data/french.csv" 
- e.g.  $ python3 ../DeepSpeech/util/check_characters.py "train.csv test.csv" 
+ e.g.  $ python3 check_characters.py -csv /home/data/french.csv
+ e.g.  $ python3 check_characters.py -csv ../train.csv,../test.csv
+ e.g.  $ python3 check_characters.py -alpha -csv ../train.csv
 
-Point this script to your transcripts, and it returns 
-to the terminal the unique set of characters in those 
+Point this script to your transcripts, and it returns
+to the terminal the unique set of characters in those
 files (combined).
 
-These files are assumed to be comma delimited, 
-with the transcript being the third field.
+These files are assumed to be csv, with the transcript being the third field.
 
-The script simply reads all the text from all the files, 
-storing a set of unique characters that were seen 
+The script simply reads all the text from all the files,
+storing a set of unique characters that were seen
 along the way.
-'''
+"""
+import argparse
+import csv
+import os
+import sys
 
-inFiles=sys.argv[1]
-if "*" in inFiles:
-    inFiles = glob.glob(inFiles)
-else:
-    inFiles = inFiles.split()
+def main():
+    parser = argparse.ArgumentParser()
 
-print("### Reading in the following transcript files: ###")
-print(inFiles)
+    parser.add_argument("-csv", "--csv-files", help="Str. Filenames as a comma separated list", required=True)
+    parser.add_argument("-alpha", "--alphabet-format", help="Bool. Print in format for alphabet.txt", action="store_true")
+    args = parser.parse_args()
+    in_files = [os.path.abspath(i) for i in args.csv_files.split(",")]
 
-allText = set()
-for inFile in (inFiles):
-    with open(inFile, 'r') as csvFile:
-        reader = csv.reader(csvFile)
-        try:
-            for row in reader:
-                allText |= set(str(row[2]))
-        except IndexError as ie:
-            print("Your input file",inFile,"is not formatted properly. Check if there are 3 columns with the 3rd containing the transcript")
-            sys.exit(-1)
-        finally:
-            csvFile.close()
+    print("### Reading in the following transcript files: ###")
+    print("### {} ###".format(in_files))
 
-print("### The following unique characters were found in your transcripts: ###")
-print(list(allText))
-print("### All these characters should be in your data/alphabet.txt file ###")
+    all_text = set()
+    for in_file in in_files:
+        with open(in_file, "r") as csv_file:
+            reader = csv.reader(csv_file)
+            try:
+                next(reader, None)  # skip the file header (i.e. "transcript")
+                for row in reader:
+                    all_text |= set(str(row[2]))
+            except IndexError:
+                print("Your input file", in_file, "is not formatted properly. Check if there are 3 columns with the 3rd containing the transcript")
+                sys.exit(-1)
+            finally:
+                csv_file.close()
+
+    print("### The following unique characters were found in your transcripts: ###")
+    if args.alphabet_format:
+        for char in list(all_text):
+            print(char)
+        print("### ^^^ You can copy-paste these into data/alphabet.txt ###")
+    else:
+        print(list(all_text))
+
+if __name__ == '__main__':
+    main()

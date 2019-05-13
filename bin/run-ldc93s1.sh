@@ -16,14 +16,16 @@ else
     checkpoint_dir=$(python -c 'from xdg import BaseDirectory as xdg; print(xdg.save_data_path("deepspeech/ldc93s1"))')
 fi
 
-python -u DeepSpeech.py \
+# Force only one visible device because we have a single-sample dataset
+# and when trying to run on multiple devices (like GPUs), this will break
+export CUDA_VISIBLE_DEVICES=0
+
+python -u DeepSpeech.py --noshow_progressbar \
   --train_files data/ldc93s1/ldc93s1.csv \
-  --dev_files data/ldc93s1/ldc93s1.csv \
   --test_files data/ldc93s1/ldc93s1.csv \
   --train_batch_size 1 \
-  --dev_batch_size 1 \
   --test_batch_size 1 \
-  --n_hidden 494 \
-  --epoch 75 \
+  --n_hidden 100 \
+  --epochs 200 \
   --checkpoint_dir "$checkpoint_dir" \
   "$@"

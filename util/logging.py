@@ -1,5 +1,8 @@
 from __future__ import print_function
 
+import progressbar
+import sys
+
 from util.flags import FLAGS
 
 
@@ -15,11 +18,6 @@ def log_debug(message):
         prefix_print('D ', message)
 
 
-def log_traffic(message):
-    if FLAGS.log_traffic:
-        log_debug(message)
-
-
 def log_info(message):
     if FLAGS.log_level <= 1:
         prefix_print('I ', message)
@@ -33,3 +31,19 @@ def log_warn(message):
 def log_error(message):
     if FLAGS.log_level <= 3:
         prefix_print('E ', message)
+
+
+def create_progressbar(*args, **kwargs):
+    # Progress bars in stdout by default
+    if 'fd' not in kwargs:
+        kwargs['fd'] = sys.stdout
+
+    if FLAGS.show_progressbar:
+        return progressbar.ProgressBar(*args, **kwargs)
+
+    return progressbar.NullBar(*args, **kwargs)
+
+
+def log_progress(message):
+    if not FLAGS.show_progressbar:
+        log_info(message)
