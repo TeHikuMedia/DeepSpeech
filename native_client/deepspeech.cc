@@ -536,19 +536,19 @@ Metadata*
 ModelState::decode_metadata(const vector<float>& logits)
 {
   vector<Output> out = decode_raw(logits);
-
+  Output best = out[0]; 
   std::unique_ptr<Metadata> metadata(new Metadata());
-  metadata->num_items = out[0].tokens.size();
-  metadata->probability = out[0].probability;
+  metadata->num_items = best.tokens.size();
+  metadata->probability = best.probability;
 
   std::unique_ptr<MetadataItem[]> items(new MetadataItem[metadata->num_items]());
 
   // Loop through each character
-  for (int i = 0; i < out[0].tokens.size(); ++i) {
-    items[i].character = strdup(alphabet->StringFromLabel(out[0].tokens[i]).c_str());
-    items[i].timestep = out[0].timesteps[i];
-    items[i].start_time = out[0].timesteps[i] * ((float)audio_win_step / sample_rate);
-
+  for (int i = 0; i < best.tokens.size(); ++i) {
+    items[i].character = strdup(alphabet->StringFromLabel(best.tokens[i]).c_str());
+    items[i].timestep = best.timesteps[i];
+    items[i].start_time = best.timesteps[i] * ((float)audio_win_step / sample_rate);
+    items[i].probability = logits[best.timesteps[i] * alphabet->GetSize() + best.tokens[i]];
     if (items[i].start_time < 0) {
       items[i].start_time = 0;
     }
