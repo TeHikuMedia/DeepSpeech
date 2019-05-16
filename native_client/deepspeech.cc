@@ -532,9 +532,62 @@ ModelState::decode_raw(const vector<float>& logits)
   return out;
 }
 
+float probability (const float *logits, int size, int index) {
+  float sum = 0.0;
+
+  float max = 0.0;
+  for (int i = 0; i < size; i++) if (max < logits[i]) max = logits[i];
+  for (int i = 0; i < size; i++) {
+    sum += exp(logits[i] - max);   // avoid overflow;
+  }
+  
+  return
+    exp(logits[index] - max) / sum;
+
+  // for (int i = 0; i < size; i++) {
+  //   sum += exp(logits[i]);  
+  // }
+  
+  // return
+  //   exp(logits[index]) / sum;
+
+}
+
+
+float sum_of_logits(const float *logits, int size) {
+  float sum = 0.0;
+  for (int i = 0; i < size; i++) {
+    sum += logits[i];  
+  }
+  return sum;
+}
+
+int arg_max(const float *logits, int size) {
+  float max = 0.0;
+  int arg_max = 0;
+  for (int i = 0; i < size; i++)  {
+    if (max < logits[i]) {
+      max = logits[i];
+      arg_max = i;
+    }
+  }
+  return arg_max;  
+}
+
+// char* safe_label(int label) {
+//   if (label > alphabet->GetSize())
+//     return std::string::c_str(); // empty string?
+//   else 
+//     return alphabet->StringFromLabel(label).c_str(); 
+// }
+
+
+
 Metadata*
 ModelState::decode_metadata(const vector<float>& logits)
 {
+  const size_t num_classes = alphabet->GetSize() + 1; // +1 for blank
+
   vector<Output> out = decode_raw(logits);
   Output best = out[0]; 
   std::unique_ptr<Metadata> metadata(new Metadata());
@@ -543,12 +596,57 @@ ModelState::decode_metadata(const vector<float>& logits)
 
   std::unique_ptr<MetadataItem[]> items(new MetadataItem[metadata->num_items]());
 
+
+  // for (int i = 0; i < 220; ++i) {
+  //   int argmax = arg_max(&logits[i * num_classes], alphabet->GetSize());  
+  //   if (argmax<alphabet->GetSize())
+  //     std::cout << std::to_string(i) << ":" << strdup(alphabet->StringFromLabel(argmax).c_str()) << ":" << std::endl;
+  // }
+
+  // // Loop through each character
+  // for (int i = 0; i < best.tokens.size(); ++i) {
+
+  //   items[i].character = strdup(alphabet->StringFromLabel(best.tokens[i]).c_str());
+  //   items[i].timestep = best.timesteps[i];
+  //   items[i].start_time = best.timesteps[i] * ((float)audio_win_step / sample_rate);
+
+  //   if (items[i].start_time < 0) {
+  //     items[i].start_time = 0;
+  //   }
+  // }
+
   // Loop through each character
   for (int i = 0; i < best.tokens.size(); ++i) {
+
+    //float sum_of_probs(0);
+    float char_prob(0);
+    float logit(0);
+    float tmp(0);
+
     items[i].character = strdup(alphabet->StringFromLabel(best.tokens[i]).c_str());
     items[i].timestep = best.timesteps[i];
     items[i].start_time = best.timesteps[i] * ((float)audio_win_step / sample_rate);
-    items[i].probability = logits[best.timesteps[i] * alphabet->GetSize() + best.tokens[i]];
+
+    std::cout <<  std::to_string(best.timesteps[i]) << ": BEST:" << items[i].character << ":" << std::endl;
+    int argmax = arg_max(&logits[i * num_classes], num_classes);  
+    std::cout << std::to_string(best.timesteps[i]) << ":     " << alphabet->StringFromLabel(argmax).c_str() << ":" << std::endl;
+  
+    for (int j = 0; j < num_classes; j++) {
+        logit = logits[best.timesteps[i] * num_classes + j];
+        tmp = best.timesteps[i]; //divide_by_sum(&logits[best.timesteps[i] * num_classes], num_classes, j);
+        std::cout << "," << alphabet->StringFromLabel(j).c_str() << "," << std::to_string(logit) << "," << std::to_string(tmp) << std::endl;
+    }
+
+    items[i].probability = logits[best.timesteps[i] * num_classes + best.tokens[i]];
+    //probability(&logits[best.timesteps[i] * num_classes], num_classes, best.tokens[i]);
+  
+    // for (int j(num_classes); j > 0; --j)
+    //     sum_of_probs += probability(&logits[best.timesteps[i] * num_classes], num_classes, j);
+    
+    //
+
+    items[i].entropy = sum_of_logits(&logits[best.timesteps[i] * num_classes], num_classes);
+
     if (items[i].start_time < 0) {
       items[i].start_time = 0;
     }
