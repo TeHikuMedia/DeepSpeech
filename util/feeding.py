@@ -21,7 +21,7 @@ def read_csvs(csv_files):
         file = pandas.read_csv(csv, encoding='utf-8', na_filter=False)
         #FIXME: not cross-platform
         csv_dir = os.path.dirname(os.path.abspath(csv))
-        file['wav_filename'] = file['wav_filename'].str.replace(r'(^[^/])', lambda m: os.path.join(csv_dir, m.group(1))) # pylint: disable=cell-var-from-loop
+        #file['wav_filename'] = file['wav_filename'].str.replace(r'(^[^/])', lambda m: os.path.join(csv_dir, m.group(1))) # pylint: disable=cell-var-from-loop
         if source_data is None:
             source_data = file
         else:
