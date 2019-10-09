@@ -75,17 +75,17 @@ using std::vector;
    API. When audio_buffer is full, features are computed from it and pushed to
    mfcc_buffer. When mfcc_buffer is full, the timestep is copied to batch_buffer.
    When batch_buffer is full, we do a single step through the acoustic model
-   and accumulate results in StreamingState::accumulated_logits.
+   and accumulate results in the DecoderState structure.
 
-   When fininshStream() is called, we decode the accumulated logits and return
+   When finishStream() is called, we decode the accumulated logits and return
    the corresponding transcription.
 */
 struct StreamingState {
-  vector<float> accumulated_logits;
   vector<float> audio_buffer;
   vector<float> mfcc_buffer;
   vector<float> batch_buffer;
   ModelState* model;
+  std::unique_ptr<DecoderState> decoder_state;
 
   void feedAudioContent(const short* buffer, unsigned int buffer_size);
   char* intermediateDecode();
@@ -136,6 +136,9 @@ struct ModelState {
   int new_state_c_idx;
   int new_state_h_idx;
   int mfccs_idx;
+
+  std::vector<int> acoustic_exec_plan;
+  std::vector<int> mfcc_exec_plan;
 #endif
 
   ModelState();
@@ -145,34 +148,26 @@ struct ModelState {
    * @brief Perform decoding of the logits, using basic CTC decoder or
    *        CTC decoder with KenLM enabled
    *
-   * @param logits         Flat matrix of logits, of size:
-   *                       n_frames * batch_size * num_classes
-   *
    * @return String representing the decoded text.
    */
-  char* decode(const vector<float>& logits);
+  char* decode(DecoderState* state);
 
   /**
    * @brief Perform decoding of the logits, using basic CTC decoder or
    *        CTC decoder with KenLM enabled
    *
-   * @param logits         Flat matrix of logits, of size:
-   *                       n_frames * batch_size * num_classes
-   *
    * @return Vector of Output structs directly from the CTC decoder for additional processing.
    */
-  vector<Output> decode_raw(const vector<float>& logits);
+  vector<Output> decode_raw(DecoderState* state);
 
   /**
    * @brief Return character-level metadata including letter timings.
    *
-   * @param logits          Flat matrix of logits, of size:
-   *                        n_frames * batch_size * num_classes
    *
    * @return Metadata struct containing MetadataItem structs for each character.
    * The user is responsible for freeing Metadata by calling DS_FreeMetadata().
    */
-  Metadata* decode_metadata(const vector<float>& logits);
+  Metadata* decode_metadata(DecoderState* state);
 
   /**
    * @brief Do a single inference step in the acoustic model, with:
@@ -270,21 +265,21 @@ StreamingState::feedAudioContent(const short* buffer,
 char*
 StreamingState::intermediateDecode()
 {
-  return model->decode(accumulated_logits);
+  return model->decode(decoder_state.get());
 }
 
 char*
 StreamingState::finishStream()
 {
   finalizeStream();
-  return model->decode(accumulated_logits);
+  return model->decode(decoder_state.get());
 }
 
 Metadata*
 StreamingState::finishStreamWithMetadata()
 {
   finalizeStream();
-  return model->decode_metadata(accumulated_logits);
+  return model->decode_metadata(decoder_state.get());
 }
 
 void
@@ -372,7 +367,26 @@ StreamingState::processMfccWindow(const vector<float>& buf)
 void
 StreamingState::processBatch(const vector<float>& buf, unsigned int n_steps)
 {
-  model->infer(buf.data(), n_steps, accumulated_logits);
+  vector<float> logits;
+  model->infer(buf.data(), n_steps, logits);
+  
+  const int cutoff_top_n = 40;
+  const double cutoff_prob = 1.0;
+  const size_t num_classes = model->alphabet->GetSize() + 1; // +1 for blank
+  const int n_frames = logits.size() / (BATCH_SIZE * num_classes);
+
+  // Convert logits to double
+  vector<double> inputs(logits.begin(), logits.end());
+
+  decoder_next(inputs.data(), 
+               *model->alphabet,
+               decoder_state.get(),
+               n_frames,
+               num_classes,
+               cutoff_prob,
+               cutoff_top_n,
+               model->beam_width,
+               model->scorer);
 }
 
 void
@@ -429,6 +443,7 @@ ModelState::infer(const float* aMfcc, unsigned int n_frames, vector<float>& logi
   memcpy(interpreter->typed_tensor<float>(previous_state_c_idx), previous_state_c_.get(), sizeof(float) * previous_state_size);
   memcpy(interpreter->typed_tensor<float>(previous_state_h_idx), previous_state_h_.get(), sizeof(float) * previous_state_size);
 
+  interpreter->SetExecutionPlan(acoustic_exec_plan);
   TfLiteStatus status = interpreter->Invoke();
   if (status != kTfLiteOk) {
     std::cerr << "Error running session: " << status << "\n";
@@ -484,6 +499,7 @@ ModelState::compute_mfcc(const vector<float>& samples, vector<float>& mfcc_outpu
     input_samples[i] = samples[i];
   }
 
+  interpreter->SetExecutionPlan(mfcc_exec_plan);
   TfLiteStatus status = interpreter->Invoke();
   if (status != kTfLiteOk) {
     std::cerr << "Error running session: " << status << "\n";
@@ -507,35 +523,24 @@ ModelState::compute_mfcc(const vector<float>& samples, vector<float>& mfcc_outpu
 }
 
 char*
-ModelState::decode(const vector<float>& logits)
+ModelState::decode(DecoderState* state)
 {
-  vector<Output> out = ModelState::decode_raw(logits);
+  vector<Output> out = ModelState::decode_raw(state);
   return strdup(alphabet->LabelsToString(out[0].tokens).c_str());
 }
 
 vector<Output>
-ModelState::decode_raw(const vector<float>& logits)
+ModelState::decode_raw(DecoderState* state)
 {
-  const int cutoff_top_n = 40;
-  const double cutoff_prob = 1.0;
-  const size_t num_classes = alphabet->GetSize() + 1; // +1 for blank
-  const int n_frames = logits.size() / (BATCH_SIZE * num_classes);
-
-  // Convert logits to double
-  vector<double> inputs(logits.begin(), logits.end());
-
-  // Vector of <probability, Output> pairs
-  vector<Output> out = ctc_beam_search_decoder(
-    inputs.data(), n_frames, num_classes, *alphabet, beam_width,
-    cutoff_prob, cutoff_top_n, scorer);
+  vector<Output> out = decoder_decode(state, *alphabet, beam_width, scorer);
 
   return out;
 }
 
 Metadata*
-ModelState::decode_metadata(const vector<float>& logits)
+ModelState::decode_metadata(DecoderState* state)
 {
-  vector<Output> out = decode_raw(logits);
+  vector<Output> out = decode_raw(state);
 
   std::unique_ptr<Metadata> metadata(new Metadata());
   metadata->num_items = out[0].tokens.size();
@@ -586,6 +591,47 @@ tflite_get_output_tensor_by_name(const ModelState* ctx, const char* name)
 {
   return ctx->interpreter->outputs()[tflite_get_tensor_by_name(ctx, ctx->interpreter->outputs(), name)];
 }
+
+void push_back_if_not_present(std::deque<int>& list, int value) {
+  if (std::find(list.begin(), list.end(), value) == list.end()) {
+    list.push_back(value);
+  }
+}
+
+// Backwards BFS on the node DAG. At each iteration we get the next tensor id
+// from the frontier list, then for each node which has that tensor id as an
+// output, add it to the parent list, and add its input tensors to the frontier
+// list. Because we start from the final tensor and work backwards to the inputs,
+// the parents list is constructed in reverse, adding elements to its front.
+std::vector<int>
+tflite_find_parent_node_ids(Interpreter* interpreter, int tensor_id)
+{
+  std::deque<int> parents;
+  std::deque<int> frontier;
+  frontier.push_back(tensor_id);
+  while (!frontier.empty()) {
+    int next_tensor_id = frontier.front();
+    frontier.pop_front();
+    // Find all nodes that have next_tensor_id as an output
+    for (int node_id = 0; node_id < interpreter->nodes_size(); ++node_id) {
+      TfLiteNode node = interpreter->node_and_registration(node_id)->first;
+      // Search node outputs for the tensor we're looking for
+      for (int i = 0; i < node.outputs->size; ++i) {
+        if (node.outputs->data[i] == next_tensor_id) {
+          // This node is part of the parent tree, add it to the parent list and
+          // add its input tensors to the frontier list
+          parents.push_front(node_id);
+          for (int j = 0; j < node.inputs->size; ++j) {
+            push_back_if_not_present(frontier, node.inputs->data[j]);
+          }
+        }
+      }
+    }
+  }
+
+  return std::vector<int>(parents.begin(), parents.end());
+}
+
 #endif
 
 int
@@ -740,6 +786,23 @@ DS_CreateModel(const char* aModelPath,
   model->new_state_h_idx      = tflite_get_output_tensor_by_name(model.get(), "new_state_h");
   model->mfccs_idx            = tflite_get_output_tensor_by_name(model.get(), "mfccs");
 
+  // When we call Interpreter::Invoke, the whole graph is executed by default,
+  // which means every time compute_mfcc is called the entire acoustic model is
+  // also executed. To workaround that problem, we walk up the dependency DAG
+  // from the mfccs output tensor to find all the relevant nodes required for
+  // feature computation, building an execution plan that runs just those nodes.
+  auto mfcc_plan = tflite_find_parent_node_ids(model->interpreter.get(), model->mfccs_idx);
+  auto orig_plan = model->interpreter->execution_plan();
+
+  // Remove MFCC nodes from original plan (all nodes) to create the acoustic model plan
+  auto erase_begin = std::remove_if(orig_plan.begin(), orig_plan.end(), [&mfcc_plan](int elem) {
+    return std::find(mfcc_plan.begin(), mfcc_plan.end(), elem) != mfcc_plan.end();
+  });
+  orig_plan.erase(erase_begin, orig_plan.end());
+
+  model->acoustic_exec_plan = std::move(orig_plan);
+  model->mfcc_exec_plan = std::move(mfcc_plan);
+
   TfLiteIntArray* dims_input_node = model->interpreter->tensor(model->input_node_idx)->dims;
 
   model->n_steps = dims_input_node->data[1];
@@ -830,14 +893,20 @@ DS_SetupStream(ModelState* aCtx,
     aPreAllocFrames = 150;
   }
 
-  ctx->accumulated_logits.reserve(aPreAllocFrames * BATCH_SIZE * num_classes);
-
   ctx->audio_buffer.reserve(aCtx->audio_win_len);
   ctx->mfcc_buffer.reserve(aCtx->mfcc_feats_per_timestep);
   ctx->mfcc_buffer.resize(aCtx->n_features*aCtx->n_context, 0.f);
   ctx->batch_buffer.reserve(aCtx->n_steps * aCtx->mfcc_feats_per_timestep);
 
   ctx->model = aCtx;
+
+#ifdef USE_TFLITE
+  /* Ensure previous_state_{c,h} are not holding previous stream value */
+  memset(ctx->model->previous_state_c_.get(), 0, sizeof(float) * ctx->model->previous_state_size);
+  memset(ctx->model->previous_state_h_.get(), 0, sizeof(float) * ctx->model->previous_state_size);
+#endif // USE_TFLITE
+
+  ctx->decoder_state.reset(decoder_init(*aCtx->alphabet, num_classes, aCtx->scorer));
 
   *retval = ctx.release();
   return DS_ERR_OK;

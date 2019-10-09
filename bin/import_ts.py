@@ -27,6 +27,7 @@ from os import path
 
 from util.downloader import maybe_download
 from util.text import validate_label
+from util.feeding import secs_to_hours
 
 FIELDNAMES = ['wav_filename', 'wav_filesize', 'transcript']
 SAMPLE_RATE = 16000
@@ -74,7 +75,7 @@ def _maybe_convert_sets(target_dir, extracted_data, english_compatible=False):
         ]
 
     # Keep track of how many samples are good vs. problematic
-    counter = {'all': 0, 'failed': 0, 'invalid_label': 0, 'too_short': 0, 'too_long': 0}
+    counter = {'all': 0, 'failed': 0, 'invalid_label': 0, 'too_short': 0, 'too_long': 0, 'total_time': 0}
     lock = RLock()
     num_samples = len(data)
     rows = []
@@ -88,6 +89,7 @@ def _maybe_convert_sets(target_dir, extracted_data, english_compatible=False):
         wav_filename = path.splitext(orig_filename)[0] + ".converted.wav"
         _maybe_convert_wav(orig_filename, wav_filename)
         file_size = -1
+        frames = 0
         if path.exists(wav_filename):
             file_size = path.getsize(wav_filename)
             frames = int(subprocess.check_output(['soxi', '-s', wav_filename], stderr=subprocess.STDOUT))
@@ -109,6 +111,7 @@ def _maybe_convert_sets(target_dir, extracted_data, english_compatible=False):
                 # This one is good - keep it for the target CSV
                 rows.append((wav_filename, file_size, label))
             counter['all'] += 1
+            counter['total_time'] += frames
 
     print("Importing wav files...")
     pool = Pool(cpu_count())
@@ -157,6 +160,7 @@ def _maybe_convert_sets(target_dir, extracted_data, english_compatible=False):
         print('Skipped %d samples that were too short to match the transcript.' % counter['too_short'])
     if counter['too_long'] > 0:
         print('Skipped %d samples that were longer than %d seconds.' % (counter['too_long'], MAX_SECS))
+    print('Final amount of imported audio: %s.' % secs_to_hours(counter['total_time'] / SAMPLE_RATE))
 
 def _maybe_convert_wav(orig_filename, wav_filename):
     if not path.exists(wav_filename):

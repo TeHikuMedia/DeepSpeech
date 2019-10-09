@@ -252,12 +252,12 @@ assert_correct_multi_ldc93s1()
 
 assert_correct_ldc93s1_prodmodel()
 {
-  assert_correct_inference "$1" "she had a due and greasy wash water year" "$2"
+  assert_correct_inference "$1" "she had reduce suit in greasy water all year" "$2"
 }
 
 assert_correct_ldc93s1_prodmodel_stereo_44k()
 {
-  assert_correct_inference "$1" "she had a due and greasy wash water year" "$2"
+  assert_correct_inference "$1" "she had reduce suit in greasy water all year" "$2"
 }
 
 assert_correct_warning_upsampling()
@@ -458,6 +458,15 @@ run_multi_inference_tests()
   status=$?
   set -e +o pipefail
   assert_correct_multi_ldc93s1 "${multi_phrase_pbmodel_withlm}" "$status"
+}
+
+run_cpp_only_inference_tests()
+{
+  set +e
+  phrase_pbmodel_withlm_intermediate_decode=$(deepspeech --model ${TASKCLUSTER_TMP_DIR}/${model_name_mmap} --alphabet ${TASKCLUSTER_TMP_DIR}/alphabet.txt --lm ${TASKCLUSTER_TMP_DIR}/lm.binary --trie ${TASKCLUSTER_TMP_DIR}/trie --audio ${TASKCLUSTER_TMP_DIR}/LDC93S1.wav --stream 1280 2>${TASKCLUSTER_TMP_DIR}/stderr | tail -n 1)
+  status=$?
+  set -e
+  assert_correct_ldc93s1_lm "${phrase_pbmodel_withlm_intermediate_decode}" "$status"
 }
 
 android_run_tests()
@@ -1143,7 +1152,8 @@ do_deepspeech_nodejs_build()
 {
   rename_to_gpu=$1
 
-  npm update && npm install node-gyp node-pre-gyp
+  # Force node-gyp 4.x until https://github.com/nodejs/node-gyp/issues/1778 is fixed
+  npm update && npm install node-gyp@4.x node-pre-gyp
 
   # Python 2.7 is required for node-pre-gyp, it is only required to force it on
   # Windows
@@ -1171,7 +1181,7 @@ do_deepspeech_nodejs_build()
       RASPBIAN=${SYSTEM_RASPBIAN} \
       TFDIR=${DS_TFDIR} \
       NODE_ABI_TARGET=--target=$electron \
-      NODE_DIST_URL=--disturl=https://atom.io/download/electron \
+      NODE_DIST_URL=--disturl=https://electronjs.org/headers \
       NODE_RUNTIME=--runtime=electron \
       clean node-wrapper
   done;
@@ -1192,7 +1202,8 @@ do_deepspeech_npm_package()
 
   cd ${DS_DSDIR}
 
-  npm update && npm install node-gyp node-pre-gyp
+  # Force node-gyp 4.x until https://github.com/nodejs/node-gyp/issues/1778 is fixed
+  npm update && npm install node-gyp@4.x node-pre-gyp
 
   # Python 2.7 is required for node-pre-gyp, it is only required to force it on
   # Windows

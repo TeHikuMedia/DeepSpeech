@@ -1,4 +1,11 @@
 #!/usr/bin/env python
+'''
+Broadly speaking, this script takes the audio downloaded from Common Voice
+for a certain language, in addition to the *.tsv files output by CorporaCreator,
+and the script formats the data and transcripts to be in a state usable by
+DeepSpeech.py
+Use "python3 import_cv2.py -h" for help
+'''
 from __future__ import absolute_import, division, print_function
 
 # Make sure we can import stuff from util/
@@ -20,31 +27,25 @@ from multiprocessing.dummy import Pool
 from multiprocessing import cpu_count
 from util.downloader import SIMPLE_BAR
 from util.text import Alphabet, validate_label
+from util.feeding import secs_to_hours
 
-'''
-Broadly speaking, this script takes the audio downloaded from Common Voice
-for a certain language, in addition to the *.tsv files output by CorporaCreator,
-and the script formats the data and transcripts to be in a state usable by
-DeepSpeech.py
-Use "python3 import_cv2.py -h" for help
-'''
 
 FIELDNAMES = ['wav_filename', 'wav_filesize', 'transcript']
 SAMPLE_RATE = 16000
 MAX_SECS = 10
 
 
-def _preprocess_data(tsv_dir, audio_dir, label_filter):
-    for dataset in ['train','test','dev']:
-        input_tsv= path.join(path.abspath(tsv_dir), dataset+".tsv")
+def _preprocess_data(tsv_dir, audio_dir, label_filter, space_after_every_character=False):
+    for dataset in ['train', 'test', 'dev']:
+        input_tsv = path.join(path.abspath(tsv_dir), dataset+".tsv")
         if os.path.isfile(input_tsv):
             print("Loading TSV file: ", input_tsv)
-            _maybe_convert_set(input_tsv, audio_dir, label_filter)
+            _maybe_convert_set(input_tsv, audio_dir, label_filter, space_after_every_character)
         else:
             print("ERROR: no TSV file found: ", input_tsv)
 
 
-def _maybe_convert_set(input_tsv, audio_dir, label_filter):
+def _maybe_convert_set(input_tsv, audio_dir, label_filter, space_after_every_character=None):
     output_csv = path.join(audio_dir, os.path.split(input_tsv)[-1].replace('tsv', 'csv'))
     print("Saving new DeepSpeech-formatted CSV file to: ", output_csv)
 
@@ -56,7 +57,7 @@ def _maybe_convert_set(input_tsv, audio_dir, label_filter):
             samples.append((row['path'], row['sentence']))
 
     # Keep track of how many samples are good vs. problematic
-    counter = {'all': 0, 'failed': 0, 'invalid_label': 0, 'too_short': 0, 'too_long': 0}
+    counter = {'all': 0, 'failed': 0, 'invalid_label': 0, 'too_short': 0, 'too_long': 0, 'total_time': 0}
     lock = RLock()
     num_samples = len(samples)
     rows = []
@@ -70,6 +71,7 @@ def _maybe_convert_set(input_tsv, audio_dir, label_filter):
         wav_filename = path.splitext(mp3_filename)[0] + ".wav"
         _maybe_convert_wav(mp3_filename, wav_filename)
         file_size = -1
+        frames = 0
         if path.exists(wav_filename):
             file_size = path.getsize(wav_filename)
             frames = int(subprocess.check_output(['soxi', '-s', wav_filename], stderr=subprocess.STDOUT))
@@ -91,6 +93,7 @@ def _maybe_convert_set(input_tsv, audio_dir, label_filter):
                 # This one is good - keep it for the target CSV
                 rows.append((wav_filename, file_size, label))
             counter['all'] += 1
+            counter['total_time'] += frames
 
     print("Importing mp3 files...")
     pool = Pool(cpu_count())
@@ -107,7 +110,10 @@ def _maybe_convert_set(input_tsv, audio_dir, label_filter):
         writer.writeheader()
         bar = progressbar.ProgressBar(max_value=len(rows), widgets=SIMPLE_BAR)
         for filename, file_size, transcript in bar(rows):
-            writer.writerow({ 'wav_filename': filename, 'wav_filesize': file_size, 'transcript': transcript })
+            if space_after_every_character:
+                writer.writerow({'wav_filename': filename, 'wav_filesize': file_size, 'transcript': ' '.join(transcript)})
+            else:
+                writer.writerow({'wav_filename': filename, 'wav_filesize': file_size, 'transcript': transcript})
 
     print('Imported %d samples.' % (counter['all'] - counter['failed'] - counter['too_short'] - counter['too_long']))
     if counter['failed'] > 0:
@@ -118,6 +124,7 @@ def _maybe_convert_set(input_tsv, audio_dir, label_filter):
         print('Skipped %d samples that were too short to match the transcript.' % counter['too_short'])
     if counter['too_long'] > 0:
         print('Skipped %d samples that were longer than %d seconds.' % (counter['too_long'], MAX_SECS))
+    print('Final amount of imported audio: %s.' % secs_to_hours(counter['total_time'] / SAMPLE_RATE))
 
 
 def _maybe_convert_wav(mp3_filename, wav_filename):
@@ -131,27 +138,29 @@ def _maybe_convert_wav(mp3_filename, wav_filename):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Import CommonVoice v2.0 corpora')
-    parser.add_argument('tsv_dir', help='Directory containing tsv files')
-    parser.add_argument('--audio_dir', help='Directory containing the audio clips - defaults to "<tsv_dir>/clips"')
-    parser.add_argument('--filter_alphabet', help='Exclude samples with characters not in provided alphabet')
-    parser.add_argument('--normalize', action='store_true', help='Converts diacritic characters to their base ones')
-    params = parser.parse_args()
+    PARSER = argparse.ArgumentParser(description='Import CommonVoice v2.0 corpora')
+    PARSER.add_argument('tsv_dir', help='Directory containing tsv files')
+    PARSER.add_argument('--audio_dir', help='Directory containing the audio clips - defaults to "<tsv_dir>/clips"')
+    PARSER.add_argument('--filter_alphabet', help='Exclude samples with characters not in provided alphabet')
+    PARSER.add_argument('--normalize', action='store_true', help='Converts diacritic characters to their base ones')
+    PARSER.add_argument('--space_after_every_character', action='store_true', help='To help transcript join by white space')
 
-    audio_dir = params.audio_dir if params.audio_dir else os.path.join(params.tsv_dir, 'clips')
-    alphabet = Alphabet(params.filter_alphabet) if params.filter_alphabet else None
+    PARAMS = PARSER.parse_args()
 
-    def label_filter(label):
-        if params.normalize:
+    AUDIO_DIR = PARAMS.audio_dir if PARAMS.audio_dir else os.path.join(PARAMS.tsv_dir, 'clips')
+    ALPHABET = Alphabet(PARAMS.filter_alphabet) if PARAMS.filter_alphabet else None
+
+    def label_filter_fun(label):
+        if PARAMS.normalize:
             label = unicodedata.normalize("NFKD", label.strip()) \
                 .encode("ascii", "ignore") \
                 .decode("ascii", "ignore")
         label = validate_label(label)
-        if alphabet and label:
+        if ALPHABET and label:
             try:
-                [alphabet.label_from_string(c) for c in label]
+                [ALPHABET.label_from_string(c) for c in label]
             except KeyError:
                 label = None
         return label
 
-    _preprocess_data(params.tsv_dir, audio_dir, label_filter)
+    _preprocess_data(PARAMS.tsv_dir, AUDIO_DIR, label_filter_fun, PARAMS.space_after_every_character)
