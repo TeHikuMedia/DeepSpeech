@@ -580,9 +580,11 @@ ModelState::decode_metadata(DecoderState* state)
     items[i].character = strdup(alphabet->StringFromLabel(best.tokens[i]).c_str());
     items[i].timestep = best.timesteps[i];
     items[i].start_time = best.timesteps[i] * ((float)audio_win_step / sample_rate);
-    items[i].acoustic_char = strdup(alphabet->StringFromLabel(argmax).c_str());
-    items[i].probability = logits[best.timesteps[i] * num_classes + best.tokens[i]];
-    items[i].entropy = entropy(&logits[best.timesteps[i] * num_classes], num_classes);
+    items[i].probability = best.probabilities[i];
+    
+    //items[i].acoustic_char = strdup(alphabet->StringFromLabel(argmax).c_str());
+    //items[i].probability = logits[best.timesteps[i] * num_classes + best.tokens[i]];
+    //items[i].entropy = entropy(&logits[best.timesteps[i] * num_classes], num_classes);
    
     if (items[i].start_time < 0) {
       items[i].start_time = 0;
