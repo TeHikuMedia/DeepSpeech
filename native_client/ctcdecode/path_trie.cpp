@@ -106,13 +106,13 @@ PathTrie* PathTrie::get_path_trie(int new_char, int new_timestep, float cur_log_
   }
 }
 
-PathTrie* PathTrie::get_path_vec(std::vector<int>& output, std::vector<int>& timesteps, std::vector<int>& probabilities) {
+PathTrie* PathTrie::get_path_vec(std::vector<int>& output, std::vector<int>& timesteps, std::vector<float>& probabilities) {
   return get_path_vec(output, timesteps, probabilities, ROOT_);
 }
 
 PathTrie* PathTrie::get_path_vec(std::vector<int>& output,
                                  std::vector<int>& timesteps,
-                                 std::vector<int>& probabilities
+                                 std::vector<float>& probabilities,
                                  int stop,
                                  size_t max_steps) {
   if (character == stop || character == ROOT_ || output.size() == max_steps) {
