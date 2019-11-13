@@ -20,3 +20,8 @@
 /native_client/python/utils_wrap.cpp
 /native_client/javascript/build
 /native_client/javascript/deepspeech_wrap.cxx
+native_client/python/MANIFEST.in
+native_client/python/deepspeech.egg-info/
+native_client/python/dist/
+native_client/python/impl.py
+native_client/python/impl_wrap.cpp
