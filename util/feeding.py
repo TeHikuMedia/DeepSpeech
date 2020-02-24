@@ -24,7 +24,6 @@ def read_csvs(csv_files):
         file = pandas.read_csv(csv, encoding='utf-8', na_filter=False)
         #FIXME: not cross-platform
         csv_dir = os.path.dirname(os.path.abspath(csv))
-        file['wav_filename'] = file['wav_filename'].str.replace(r'(^[^/])', lambda m: os.path.join(csv_dir, m.group(1))) # pylint: disable=cell-var-from-loop
         sets.append(file)
     # Concat all sets, drop any extra columns, re-index the final result as 0..N
     return pandas.concat(sets, join='inner', ignore_index=True)
