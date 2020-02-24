@@ -15,11 +15,11 @@ set -ex
 # and the output will be discarded.
 
 # The code below presents an implementation that works for git repository
-tf_git_rev=$(git describe --long --tags)
+tf_git_rev=v1.14.0-22-gc11efc75f3
 echo "STABLE_TF_GIT_VERSION ${tf_git_rev}"
 
 pushd native_client
-ds_git_rev=$(git describe --long --tags)
+ds_git_rev=v0.6.1-1-gc8a1d146
 echo "STABLE_DS_GIT_VERSION ${ds_git_rev}"
 ds_graph_version=$(cat ../GRAPH_VERSION)
 echo "STABLE_DS_GRAPH_VERSION ${ds_graph_version}"
