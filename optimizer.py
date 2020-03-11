@@ -9,7 +9,7 @@ import absl.app
 from ds_ctcdecoder import Scorer
 import tensorflow.compat.v1 as tfv1
 
-from DeepSpeech import create_model
+from DeepSpeech import create_model, try_loading
 from evaluate import evaluate
 from util.config import Config, initialize_globals
 from util.flags import create_flags, FLAGS
@@ -19,9 +19,9 @@ from util.evaluate_tools import wer_cer_batch
 
 def character_based():
     is_character_based = False
-    if FLAGS.scorer_path:
-        scorer = Scorer(FLAGS.lm_alpha, FLAGS.lm_beta, FLAGS.scorer_path, Config.alphabet)
-        is_character_based = scorer.is_utf8_mode()
+    # if FLAGS.scorer_path:
+    #     scorer = Scorer(FLAGS.lm_alpha, FLAGS.lm_beta, FLAGS.scorer_path, Config.alphabet)
+    #     is_character_based = scorer.is_utf8_mode()
     return is_character_based
 
 def objective(trial):
@@ -29,7 +29,7 @@ def objective(trial):
     FLAGS.lm_beta = trial.suggest_uniform('lm_beta', 0, FLAGS.lm_beta_max)
 
     tfv1.reset_default_graph()
-    samples = evaluate(FLAGS.test_files.split(','), create_model)
+    samples = evaluate(FLAGS.test_files.split(','), create_model, try_loading)
 
     is_character_based = trial.study.user_attrs['is_character_based']
 
