@@ -37,7 +37,7 @@ def objective(trial):
     wer, cer = wer_cer_batch(samples)
 
     if FLAGS.test_output_file:
-        test_output_file = FLAGS.test_output_file.rsplit(".")[0] + "_" + str(trial.number) + '.csv'
+        test_output_file = FLAGS.test_output_file.rsplit(".", 1)[0] + "_" + str(trial.number) + '.csv'
         with open(test_output_file, 'w') as f:
             # Write a header for the csv file
             f.write(','.join(samples[0].keys()) + '\n')
