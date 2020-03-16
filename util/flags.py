@@ -163,6 +163,7 @@ def create_flags():
     f.DEFINE_float('lm_alpha_max', 5, 'the maximum of the alpha hyperparameter of the CTC decoder explored during hyperparameter optimization. Language Model weight.')
     f.DEFINE_float('lm_beta_max', 5, 'the maximum beta hyperparameter of the CTC decoder explored during hyperparameter optimization. Word insertion weight.')
     f.DEFINE_integer('n_trials', 2400, 'the number of trials to run during hyperparameter optimization.')
+    f.DEFINE_string('lm_config_file', '', 'path to a file to save the best parameters learned during hyperparameter optimization')
 
     # Register validators for paths which require a file to be specified
 

@@ -3,6 +3,7 @@
 from __future__ import absolute_import, print_function
 
 import sys
+import json
 
 import optuna
 import absl.app
@@ -34,6 +35,16 @@ def objective(trial):
     is_character_based = trial.study.user_attrs['is_character_based']
 
     wer, cer = wer_cer_batch(samples)
+
+    if FLAGS.test_output_file:
+        test_output_file = FLAGS.test_output_file.rsplit(".")[0] + "_" + str(trial.number) + '.csv'
+        with open(test_output_file, 'w') as f:
+            # Write a header for the csv file
+            f.write(','.join(samples[0].keys()) + '\n')
+            for sample in samples:
+                # Write each row, casting values to str type
+                f.write(','.join(map(str, sample.values())) + '\n')
+
     return cer if is_character_based else wer
 
 def main(_):
@@ -49,6 +60,11 @@ def main(_):
     study = optuna.create_study()
     study.set_user_attr("is_character_based", is_character_based)
     study.optimize(objective, n_jobs=1, n_trials=FLAGS.n_trials)
+
+    if FLAGS.lm_config_file:
+        with open(FLAGS.lm_config_file, "w") as f:
+            f.write(json.dumps(study.best_params))
+
     print('Best params: lm_alpha={} and lm_beta={} with WER={}'.format(study.best_params['lm_alpha'],
                                                                        study.best_params['lm_beta'],
                                                                        study.best_value))
