@@ -24,12 +24,14 @@ public:
   PathTrie* get_path_trie(int new_char, int new_timestep, float log_prob_c, bool reset = true);
 
   // get the prefix data in correct time order from root to current node
-  void get_path_vec(std::vector<int>& output, std::vector<int>& timesteps);
+  void get_path_vec(std::vector<int>& output, 
+                    std::vector<int>& timesteps,
+                    std::vector<float>& logprobs);
 
   // get the prefix data in correct time order from beginning of last grapheme to current node
   PathTrie* get_prev_grapheme(std::vector<int>& output,
                               std::vector<int>& timesteps,
-                              std::vector<float>& probabilities,
+                              std::vector<float>& logprobs,
                               const Alphabet& alphabet);
 
   // get the distance from current node to the first codepoint boundary, and the byte value at the boundary
@@ -38,7 +40,7 @@ public:
   // get the prefix data in correct time order from beginning of last word to current node
   PathTrie* get_prev_word(std::vector<int>& output,
                           std::vector<int>& timesteps,
-                          std::vector<float>& probabilities,
+                          std::vector<float>& logprobs,
                           const Alphabet& alphabet);
 
   // update log probs
