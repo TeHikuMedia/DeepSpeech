@@ -120,9 +120,8 @@ void PathTrie::get_path_vec(std::vector<int>& output,
 
 PathTrie* PathTrie::get_prev_grapheme(std::vector<int>& output,
                                       std::vector<int>& timesteps,
-                                      std::vector<int>& timesteps,
                                       std::vector<float>& logprobs,
-									  const Alphabet& alphabet)
+									                    const Alphabet& alphabet)
 {
   PathTrie* stop = this;
   if (character == ROOT_) {
