@@ -81,8 +81,8 @@ def build_lm(args, data_lower, vocab_str):
             os.path.join(args.kenlm_bins, "lmplz"),
             "--order",
             str(args.arpa_order),
-            "--temp_prefix",
-            args.output_dir,
+            # "--temp_prefix",
+            # args.output_dir,
             "--memory",
             args.max_arpa_memory,
             "--text",
@@ -91,6 +91,7 @@ def build_lm(args, data_lower, vocab_str):
             lm_path,
             "--prune",
             *args.arpa_prune.split("|"),
+            "--skip_symbols" if args.skip_symbols else ""
         ]
     if args.discount_fallback:
         subargs += ["--discount_fallback"]
@@ -194,6 +195,12 @@ def main():
         help="To try when such message is returned by kenlm: 'Could not calculate Kneser-Ney discounts [...] rerun with --discount_fallback'",
         action="store_true",
     )
+    parser.add_argument(
+        "--skip_symbols",
+        help="Pass 'skip_symbols' to lmplz",
+        action="store_true",
+    )
+    
 
     args = parser.parse_args()
 
