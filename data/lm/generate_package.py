@@ -4,7 +4,7 @@ from __future__ import absolute_import, division, print_function
 import argparse
 import shutil
 
-from deepspeech_training.util.text import Alphabet, UTF8Alphabet
+from text import Alphabet, UTF8Alphabet
 from ds_ctcdecoder import Scorer, Alphabet as NativeAlphabet
 
 
