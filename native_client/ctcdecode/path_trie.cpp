@@ -15,6 +15,7 @@ PathTrie::PathTrie() {
   log_prob_nb_cur = -NUM_FLT_INF;
   log_prob_c = -NUM_FLT_INF;
   score = -NUM_FLT_INF;
+  prob = 0.0; 
 
   ROOT_ = -1;
   character = ROOT_;
@@ -35,7 +36,7 @@ PathTrie::~PathTrie() {
   }
 }
 
-PathTrie* PathTrie::get_path_trie(int new_char, int new_timestep, float cur_log_prob_c, bool reset) {
+PathTrie* PathTrie::get_path_trie(int new_char, int new_timestep, float cur_log_prob_c, double probability, bool reset) {
   auto child = children_.begin();
   for (; child != children_.end(); ++child) {
     if (child->first == new_char) {
@@ -73,6 +74,7 @@ PathTrie* PathTrie::get_path_trie(int new_char, int new_timestep, float cur_log_
         new_path->has_dictionary_ = true;
         new_path->matcher_ = matcher_;
         new_path->log_prob_c = cur_log_prob_c;
+        new_path->prob = probability;
 
         // set spell checker state
         // check to see if next state is final
@@ -96,26 +98,32 @@ PathTrie* PathTrie::get_path_trie(int new_char, int new_timestep, float cur_log_
       new_path->timestep = new_timestep;
       new_path->parent = this;
       new_path->log_prob_c = cur_log_prob_c;
+      new_path->prob = probability;
       children_.push_back(std::make_pair(new_char, new_path));
       return new_path;
     }
   }
 }
 
-void PathTrie::get_path_vec(std::vector<int>& output, std::vector<int>& timesteps) {
+void PathTrie::get_path_vec(std::vector<int>& output,
+                            std::vector<int>& timesteps,
+                            std::vector<double>& probs)
+{
   // Recursive call: recurse back until stop condition, then append data in
   // correct order as we walk back down the stack in the lines below.
   if (parent != nullptr) {
-    parent->get_path_vec(output, timesteps);
+    parent->get_path_vec(output, timesteps, probs);
   }
   if (character != ROOT_) {
     output.push_back(character);
     timesteps.push_back(timestep);
+    probs.push_back(prob);
   }
 }
 
 PathTrie* PathTrie::get_prev_grapheme(std::vector<int>& output,
                                       std::vector<int>& timesteps,
+                                      std::vector<double>& probs,
                                       const Alphabet& alphabet)
 {
   PathTrie* stop = this;
@@ -125,10 +133,11 @@ PathTrie* PathTrie::get_prev_grapheme(std::vector<int>& output,
   // Recursive call: recurse back until stop condition, then append data in
   // correct order as we walk back down the stack in the lines below.
   if (!byte_is_codepoint_boundary(alphabet.StringFromLabel(character)[0])) {
-    stop = parent->get_prev_grapheme(output, timesteps, alphabet);
+    stop = parent->get_prev_grapheme(output, timesteps, probs, alphabet);
   }
   output.push_back(character);
   timesteps.push_back(timestep);
+  probs.push_back(prob);
   return stop;
 }
 
@@ -148,6 +157,7 @@ int PathTrie::distance_to_codepoint_boundary(unsigned char *first_byte,
 
 PathTrie* PathTrie::get_prev_word(std::vector<int>& output,
                                   std::vector<int>& timesteps,
+                                  std::vector<double>& probs,
                                   const Alphabet& alphabet)
 {
   PathTrie* stop = this;
@@ -157,10 +167,11 @@ PathTrie* PathTrie::get_prev_word(std::vector<int>& output,
   // Recursive call: recurse back until stop condition, then append data in
   // correct order as we walk back down the stack in the lines below.
   if (parent != nullptr) {
-    stop = parent->get_prev_word(output, timesteps, alphabet);
+    stop = parent->get_prev_word(output, timesteps, probs, alphabet);
   }
   output.push_back(character);
   timesteps.push_back(timestep);
+  probs.push_back(prob);
   return stop;
 }
 

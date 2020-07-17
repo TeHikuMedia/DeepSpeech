@@ -84,12 +84,14 @@ DecoderState::next(const double *probs,
       full_beam = (num_prefixes == beam_size_);
     }
 
-    std::vector<std::pair<size_t, float>> log_prob_idx =
-        get_pruned_log_probs(prob, class_dim, cutoff_prob_, cutoff_top_n_);
+    std::vector<std::pair<size_t, double>> prob_idx =
+        get_pruned_prob_idx(prob, class_dim, cutoff_prob_, cutoff_top_n_);
+    
     // loop over class dim
-    for (size_t index = 0; index < log_prob_idx.size(); index++) {
-      auto c = log_prob_idx[index].first;
-      auto log_prob_c = log_prob_idx[index].second;
+    for (size_t index = 0; index < prob_idx.size(); index++) {
+      auto c = prob_idx[index].first;
+      auto probability = prob_idx[index].second;
+      float log_prob_c = log(probability + NUM_FLT_MIN);
 
       for (size_t i = 0; i < prefixes_.size() && i < beam_size_; ++i) {
         auto prefix = prefixes_[i];
@@ -111,7 +113,7 @@ DecoderState::next(const double *probs,
         }
 
         // get new prefix
-        auto prefix_new = prefix->get_path_trie(c, abs_time_step_, log_prob_c);
+        auto prefix_new = prefix->get_path_trie(c, abs_time_step_, log_prob_c, probability);
 
         if (prefix_new != nullptr) {
           float log_p = -NUM_FLT_INF;
@@ -208,7 +210,7 @@ DecoderState::decode(size_t num_results) const
   // return order of decoding result. To delete when decoder gets stable.
   for (size_t i = 0; i < num_returned; ++i) {
     Output output;
-    prefixes_copy[i]->get_path_vec(output.tokens, output.timesteps);
+    prefixes_copy[i]->get_path_vec(output.tokens, output.timesteps, output.probs);
     double approx_ctc = scores[prefixes_copy[i]];
     if (ext_scorer_) {
       auto words = ext_scorer_->split_labels_into_scored_units(output.tokens);
