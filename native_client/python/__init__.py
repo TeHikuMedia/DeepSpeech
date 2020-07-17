@@ -281,6 +281,12 @@ class TokenMetadata(object):
         """
         Position of the token in seconds
         """
+    
+
+    def probability(self):
+        """
+        Confidence in this character from last layer of logits
+        """
 
 
 class CandidateTranscript(object):

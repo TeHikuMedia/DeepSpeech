@@ -31,6 +31,9 @@ typedef struct TokenMetadata {
 
   /** Position of the token in seconds */
   const float start_time;
+
+  /** Confidence in this character from last layer of logit */
+  const double probability;
 } TokenMetadata;
 
 /**
