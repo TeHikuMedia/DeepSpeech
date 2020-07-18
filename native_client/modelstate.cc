@@ -1,10 +1,12 @@
 #include <vector>
 
 #include "ctcdecode/ctc_beam_search_decoder.h"
-#include "decoder_utils.h"
+
 #include "modelstate.h"
 
 using std::vector;
+
+const float NUM_FLT_MIN  = std::numeric_limits<float>::min();
 
 ModelState::ModelState()
   : beam_width_(-1)
