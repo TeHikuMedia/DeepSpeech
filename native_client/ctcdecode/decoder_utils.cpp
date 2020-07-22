@@ -27,16 +27,11 @@ std::vector<std::pair<size_t, double>> get_pruned_prob_idx(
         if (cum_prob >= cutoff_prob || cutoff_len >= cutoff_top_n) break;
       }
     }
+    // prune at cutoff_len
     prob_idx = std::vector<std::pair<size_t, double>>(
         prob_idx.begin(), prob_idx.begin() + cutoff_len);
   }
   return prob_idx;  
-  // std::vector<std::pair<size_t, float>> log_prob_idx;
-  // for (size_t i = 0; i < cutoff_len; ++i) {
-  //   log_prob_idx.push_back(std::pair<int, float>(
-  //       prob_idx[i].first, log(prob_idx[i].second + NUM_FLT_MIN)));
-  // }
-  // return log_prob_idx;
 }
 
 size_t get_utf8_str_len(const std::string &str) {
