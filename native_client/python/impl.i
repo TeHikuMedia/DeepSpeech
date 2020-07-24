@@ -77,7 +77,8 @@ static PyObject *parent_reference() {
 %extend struct TokenMetadata {
 %pythoncode %{
   def __repr__(self):
-    return 'TokenMetadata(text=\'{}\', timestep={}, start_time={}, probability={})'.format(self.text, self.timestep, self.start_time, self.probability)
+    return 'TokenMetadata(text=\'{}\', timestep={}, start_time={}, probability={}, score={}, log_prob_nb_cur={}, log_prob_c={})'\
+              .format(self.text, self.timestep, self.start_time, self.probability. self.score, self.log_prob_nb_cur, self.log_prob_c)
 %}
 }
 

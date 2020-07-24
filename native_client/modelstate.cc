@@ -55,7 +55,10 @@ ModelState::decode_metadata(const DecoderState& state,
         strdup(alphabet_.StringFromLabel(out[i].tokens[j]).c_str()),   // text
         static_cast<unsigned int>(out[i].timesteps[j]),                // timestep
         out[i].timesteps[j] * ((float)audio_win_step_ / sample_rate_), // start_time
-        static_cast<double>(out[i].probs[j])                           // probability
+        static_cast<double>(out[i].probs[j]),                          // probability
+        static_cast<float>(out[i].scores[j]),                          // score
+        static_cast<float>(out[i].log_prob_nb_curs[j]),                // log_prob_nb_cur
+        static_cast<float>(out[i].log_prob_cs[j]),                     // log_prob_c
       };
       memcpy(&tokens[j], &token, sizeof(TokenMetadata));
     }

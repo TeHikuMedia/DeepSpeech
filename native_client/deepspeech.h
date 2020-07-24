@@ -34,6 +34,14 @@ typedef struct TokenMetadata {
 
   /** Confidence in this character from last layer of logit */
   const double probability;
+
+  /** FIXME temp hack to see what data i can get this way  */
+  const float score;
+  /** FIXME temp hack to see what data i can get this way  */
+  const float log_prob_nb_cur;
+  /** FIXME temp hack to see what data i can get this way  */
+  const float log_prob_c;
+
 } TokenMetadata;
 
 /**

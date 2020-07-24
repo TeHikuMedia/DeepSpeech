@@ -26,7 +26,10 @@ public:
   // get the prefix data in correct time order from root to current node
   void get_path_vec(std::vector<int>& output, 
                     std::vector<int>& timesteps,
-                    std::vector<double>& probs);
+                    std::vector<double>& probs,
+                    std::vector<float>& scores,
+                    std::vector<float>& log_prob_nb_curs,
+                    std::vector<float>& log_prob_cs);
 
   // get the prefix data in correct time order from beginning of last grapheme to current node
   PathTrie* get_prev_grapheme(std::vector<int>& output,
