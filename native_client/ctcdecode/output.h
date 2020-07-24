@@ -13,7 +13,7 @@ struct Output {
     std::vector<double> probs;
     std::vector<float> scores;
     std::vector<float> log_prob_nb_curs;
-    std::vector<double> log_prob_cs;
+    std::vector<float> log_prob_cs;
 };
 
 #endif  // OUTPUT_H_

@@ -107,17 +107,23 @@ PathTrie* PathTrie::get_path_trie(int new_char, int new_timestep, float cur_log_
 
 void PathTrie::get_path_vec(std::vector<int>& output,
                             std::vector<int>& timesteps,
-                            std::vector<double>& probs)
+                            std::vector<double>& probs,
+                            std::vector<float>& scores,
+                            std::vector<float>& log_prob_nb_curs,
+                            std::vector<float>& log_prob_cs)
 {
   // Recursive call: recurse back until stop condition, then append data in
   // correct order as we walk back down the stack in the lines below.
   if (parent != nullptr) {
-    parent->get_path_vec(output, timesteps, probs);
+    parent->get_path_vec(output, timesteps, probs, scores, log_prob_nb_curs, log_prob_cs);
   }
   if (character != ROOT_) {
     output.push_back(character);
     timesteps.push_back(timestep);
     probs.push_back(prob);
+    scores.push_back(score);
+    log_prob_nb_curs.push_back(log_prob_nb_cur);
+    log_prob_cs.push_back(log_prob_c);
   }
 }
 
