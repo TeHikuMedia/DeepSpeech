@@ -48,6 +48,8 @@ PathTrie* PathTrie::get_path_trie(int new_char, int new_timestep, float cur_log_
           child->second->children_.size() == 0) {
               child->second->log_prob_c = cur_log_prob_c;
               child->second->timestep = new_timestep;
+              child->second->prob = probability;
+
       }
       break;
     }
