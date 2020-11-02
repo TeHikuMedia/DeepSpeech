@@ -37,7 +37,7 @@ DecoderState::init(const Alphabet& alphabet,
   PathTrie *root = new PathTrie;
   root->score = root->log_prob_b_prev = 0.0;
   prefix_root_.reset(root);
-  prefix_root_->timesteps = &timestep_tree_root_;
+  prefix_root_->timestep_probs = &timestep_tree_root_;
   prefixes_.push_back(root);
 
   if (ext_scorer && (bool)(ext_scorer_->dictionary)) {
@@ -102,7 +102,7 @@ DecoderState::next(const double *probs,
         if (prefix->score == -NUM_FLT_INF) {
           continue;
         }
-        assert(prefix->timesteps != nullptr);
+        assert(prefix->timestep_probs != nullptr);
 
         // blank
         if (c == blank_id_) {
@@ -113,7 +113,7 @@ DecoderState::next(const double *probs,
           // the blank label comes last, so we can compare log_prob_nb_cur with log_p
           if (prefix->log_prob_nb_cur < log_p) {
             // keep current timesteps
-            prefix->previous_timesteps = nullptr;
+            prefix->previous_timestep_probs = nullptr;
           }
           prefix->log_prob_b_cur =
               log_sum_exp(prefix->log_prob_b_cur, log_p);
@@ -128,7 +128,7 @@ DecoderState::next(const double *probs,
           // combine current path with previous ones with the same prefix
           if (prefix->log_prob_nb_cur < log_p) {
             // keep current timesteps
-            prefix->previous_timesteps = nullptr;
+            prefix->previous_timestep_probs = nullptr;
           }
           prefix->log_prob_nb_cur = log_sum_exp(
               prefix->log_prob_nb_cur, log_p);
@@ -188,8 +188,9 @@ DecoderState::next(const double *probs,
           if (prefix_new->log_prob_nb_cur < log_p) {
             // record data needed to update timesteps
             // the actual update will be done if nothing better is found
-            prefix_new->previous_timesteps = prefix->timesteps;
+            prefix_new->previous_timestep_probs = prefix->timestep_probs;
             prefix_new->new_timestep = abs_time_step_;
+            prefix_new->new_timestep_prob = std::make_pair(abs_time_step_, log_prob_c);
           }
           prefix_new->log_prob_nb_cur =
               log_sum_exp(prefix_new->log_prob_nb_cur, log_p);
@@ -255,8 +256,13 @@ DecoderState::decode(size_t num_results) const
   for (size_t i = 0; i < num_returned; ++i) {
     Output output;
     prefixes_copy[i]->get_path_vec(output.tokens);
-    output.timesteps  = get_history(prefixes_copy[i]->timesteps, &timestep_tree_root_);
-    assert(output.tokens.size() == output.timesteps.size());
+
+    for (std::pair<unsigned int, float> pair :
+      get_history(prefixes_copy[i]->timestep_probs, &timestep_tree_root_)) {
+        output.timesteps.push_back(pair.first);
+        output.probabilities.push_back(pair.second);
+    }
+    assert(output.tokens.size() == output.timestep_probs.size());
     output.confidence = scores[prefixes_copy[i]];
     outputs.push_back(output);
   }

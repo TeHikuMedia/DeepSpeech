@@ -21,7 +21,7 @@ class DecoderState {
   std::shared_ptr<Scorer> ext_scorer_;
   std::vector<PathTrie*> prefixes_;
   std::unique_ptr<PathTrie> prefix_root_;
-  TimestepTreeNode timestep_tree_root_{nullptr, 0};
+  TimestepProbabilityTreeNode timestep_tree_root_{nullptr, std::make_pair(0,0.0f)};
   std::unordered_map<std::string, float> hot_words_;
 
 public:

@@ -157,7 +157,7 @@ PathTrie* PathTrie::get_prev_word(std::vector<unsigned int>& output,
 }
 
 void PathTrie::iterate_to_vec(std::vector<PathTrie*>& output) {
-  // previous_timesteps might point to ancestors' timesteps
+  // previous_timestep_probs might point to ancestors' timesteps
   // therefore, children must be uptaded first
   for (auto child : children_) {
     child.second->iterate_to_vec(output);
@@ -171,19 +171,19 @@ void PathTrie::iterate_to_vec(std::vector<PathTrie*>& output) {
 
     score = log_sum_exp(log_prob_b_prev, log_prob_nb_prev);
 
-    if (previous_timesteps != nullptr) {
-      timesteps = nullptr;
-      for (auto const& child : previous_timesteps->children) {
-        if (child->data == new_timestep) {
-            timesteps = child.get();
+    if (previous_timestep_probs != nullptr) {
+      timestep_probs = nullptr;
+      for (auto const& child : previous_timestep_probs->children) {
+        if (child->data.first == new_timestep) {
+            timestep_probs = child.get();
             break;
         }
       }
-      if (timesteps == nullptr) {
-          timesteps = add_child(previous_timesteps, new_timestep);
+      if (timestep_probs == nullptr) {
+          timestep_probs = add_child(previous_timestep_probs, new_timestep_prob);
       }
     }
-    previous_timesteps = nullptr;
+    previous_timestep_probs = nullptr;
 
     output.push_back(this);
   }
@@ -218,7 +218,7 @@ void PathTrie::set_matcher(std::shared_ptr<fst::SortedMatcher<FstType>> matcher)
   matcher_ = matcher;
 }
 
-#ifdef DEBUG
+//ifdef DEBUG
 void PathTrie::vec(std::vector<PathTrie*>& out) {
   if (parent != nullptr) {
     parent->vec(out);
@@ -238,10 +238,10 @@ void PathTrie::print(const Alphabet& a) {
     }
   }
   printf("\ntimesteps:\t ");
-  for (unsigned int timestep : get_history(timesteps)) {
-    printf("%d ", timestep);
+  for (std::pair<unsigned int, float> pair : get_history(timestep_probs)) {
+    printf("%d %.6f", pair.first, pair.second);
   }
   printf("\n");
   printf("transcript:\t %s\n", tr.c_str());
 }
-#endif // DEBUG
+//endif // DEBUG

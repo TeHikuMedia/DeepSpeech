@@ -36,7 +36,7 @@ TreeNode<NodeDataT>* add_child(TreeNode<NodeDataT>* tree_node, ChildDataT&& data
 template<class DataT>
 std::vector<DataT> get_history(TreeNode<DataT> const* tree_node, TreeNode<DataT> const* root = nullptr);
 
-using TimestepTreeNode = TreeNode<unsigned int>;
+using TimestepProbabilityTreeNode = TreeNode<std::pair<unsigned int, float>>;
 
 /* Trie tree for prefix storing and manipulating, with a dictionary in
  * finite-state transducer for spelling correction.
@@ -78,10 +78,10 @@ public:
   // remove current path from root
   void remove();
 
-#ifdef DEBUG
+//ifdef DEBUG
   void vec(std::vector<PathTrie*>& out);
   void print(const Alphabet& a);
-#endif // DEBUG
+//endif // DEBUG
 
   float log_prob_b_prev;
   float log_prob_nb_prev;
@@ -91,11 +91,13 @@ public:
   float score;
   float approx_ctc;
   unsigned int character;
-  TimestepTreeNode* timesteps = nullptr;
+  // timestep-probability pairs in a treenode structure
+  TimestepProbabilityTreeNode* timestep_probs = nullptr;
 
-  // timestep temporary storage for each decoding step. 
-  TimestepTreeNode* previous_timesteps = nullptr; 
+  // timestep data temporary storage for each decoding step. 
+  TimestepProbabilityTreeNode* previous_timestep_probs = nullptr; 
   unsigned int new_timestep;
+  std::pair <unsigned int, double> new_timestep_prob;
 
   PathTrie* parent;
 
