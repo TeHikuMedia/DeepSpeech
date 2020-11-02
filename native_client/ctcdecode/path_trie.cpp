@@ -218,7 +218,7 @@ void PathTrie::set_matcher(std::shared_ptr<fst::SortedMatcher<FstType>> matcher)
   matcher_ = matcher;
 }
 
-//ifdef DEBUG
+#ifdef DEBUG
 void PathTrie::vec(std::vector<PathTrie*>& out) {
   if (parent != nullptr) {
     parent->vec(out);
@@ -244,4 +244,4 @@ void PathTrie::print(const Alphabet& a) {
   printf("\n");
   printf("transcript:\t %s\n", tr.c_str());
 }
-//endif // DEBUG
+#endif // DEBUG
