@@ -33,7 +33,7 @@ typedef struct TokenMetadata {
   const float start_time;
 
   /** Logit value at the time the character or grapheme was chosen*/
-  double probability; 
+  float probability; 
 
 } TokenMetadata;
 
