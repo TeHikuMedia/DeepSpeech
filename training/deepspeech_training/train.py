@@ -599,7 +599,7 @@ def train():
             pbar.finish()
             mean_loss = total_loss / step_count if step_count > 0 else 0.0
 
-            epoch_summary = tfv1.summary.scalar(name='epoch_loss', tensor=mean_loss, collections=['epoch_summaries'])
+            epoch_summary = tfv1.summary.scalar(name='epoch_loss', tensor=tf.constant(mean_loss), collections=['epoch_summaries'])
             summary_writer.add_summary(epoch_summary, epoch)
 
             return mean_loss, step_count
