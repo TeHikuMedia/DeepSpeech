@@ -606,7 +606,7 @@ def train():
             # save summary of loss this epoch
             epoch_loss = session.run(
                 epoch_summary, 
-                feed_dict={'per_epoch_loss': mean_loss}
+                feed_dict={'per_epoch_loss:0': mean_loss}
             )
 
             summary_writer.add_summary(epoch_loss, epoch)
