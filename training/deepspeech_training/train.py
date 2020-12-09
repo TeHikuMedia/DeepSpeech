@@ -493,7 +493,7 @@ def train():
     # Summaries
     step_summaries_op = tfv1.summary.merge_all('step_summaries')
 
-    epoch_loss = variable_on_cpu('per_epoch_loss', [1], tfv1.zeros_initializer())
+    epoch_loss = variable_on_cpu('per_epoch_loss', [], tfv1.zeros_initializer())
     epoch_summary = tfv1.summary.scalar(name='epoch_loss', tensor=epoch_loss, collections=['epoch_summaries'])
     # epoch_summaries_op = tfv1.summary.merge_all('epoch_summaries')
 
