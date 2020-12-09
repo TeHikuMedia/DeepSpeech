@@ -490,12 +490,12 @@ def train():
     global_step = tfv1.train.get_or_create_global_step()
     apply_gradient_op = optimizer.apply_gradients(avg_tower_gradients, global_step=global_step)
 
-    def update_epoch_loss(epoch_loss):
-        return tfv1.summary.scalar(name='epoch_loss', tensor=epoch_loss, collections=['epoch_summaries'])
-
     # Summaries
     step_summaries_op = tfv1.summary.merge_all('step_summaries')
-    epoch_summaries_op = tfv1.summary.merge_all('epoch_summaries')
+
+    epoch_loss = variable_on_cpu('per_epoch_loss', [1], tfv1.zeros_initializer())
+    epoch_summary = tfv1.summary.scalar(name='epoch_loss', tensor=epoch_loss, collections=['epoch_summaries'])
+    # epoch_summaries_op = tfv1.summary.merge_all('epoch_summaries')
 
     # step_summary_writers = {
     #     'train': tfv1.summary.FileWriter(os.path.join(FLAGS.summary_dir, 'train'), max_queue=120),
@@ -603,7 +603,12 @@ def train():
             pbar.finish()
             mean_loss = total_loss / step_count if step_count > 0 else 0.0
 
-            epoch_loss = update_epoch_loss(mean_loss)
+            # save summary of loss this epoch
+            epoch_loss = session.run(
+                epoch_summary, 
+                feed_dict={'per_epoch_loss': mean_loss}
+            )
+
             summary_writer.add_summary(epoch_loss, epoch)
 
             return mean_loss, step_count
