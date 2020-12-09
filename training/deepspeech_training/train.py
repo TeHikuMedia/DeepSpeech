@@ -495,13 +495,6 @@ def train():
 
     epoch_loss = variable_on_cpu('per_epoch_loss', [], tfv1.zeros_initializer())
     epoch_summary = tfv1.summary.scalar(name='epoch_loss', tensor=epoch_loss, collections=['epoch_summaries'])
-    # epoch_summaries_op = tfv1.summary.merge_all('epoch_summaries')
-
-    # step_summary_writers = {
-    #     'train': tfv1.summary.FileWriter(os.path.join(FLAGS.summary_dir, 'train'), max_queue=120),
-    #     'dev': tfv1.summary.FileWriter(os.path.join(FLAGS.summary_dir, 'dev'), max_queue=120),
-    #     'metrics': tfv1.summary.FileWriter(os.path.join(FLAGS.summary_dir, 'metrics'), max_queue=120),
-    # }
 
     summary_writers = {
         'train': tfv1.summary.FileWriter(os.path.join(FLAGS.summary_dir, 'train'), max_queue=120),
