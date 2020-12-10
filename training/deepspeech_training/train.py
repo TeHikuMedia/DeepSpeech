@@ -492,7 +492,11 @@ def train():
 
     # Summaries
     step_summaries_op = tfv1.summary.merge_all('step_summaries')
-    step_summary_writers = {
+
+    epoch_loss = variable_on_cpu('per_epoch_loss', [], tfv1.zeros_initializer())
+    epoch_summary = tfv1.summary.scalar(name='epoch_loss', tensor=epoch_loss, collections=['epoch_summaries'])
+
+    summary_writers = {
         'train': tfv1.summary.FileWriter(os.path.join(FLAGS.summary_dir, 'train'), max_queue=120),
         'dev': tfv1.summary.FileWriter(os.path.join(FLAGS.summary_dir, 'dev'), max_queue=120),
         'metrics': tfv1.summary.FileWriter(os.path.join(FLAGS.summary_dir, 'metrics'), max_queue=120),
@@ -534,7 +538,7 @@ def train():
             total_loss = 0.0
             step_count = 0
 
-            step_summary_writer = step_summary_writers.get(set_name)
+            summary_writer = summary_writers.get(set_name)
             checkpoint_time = time.time()
 
             if is_train and FLAGS.cache_for_epochs > 0 and FLAGS.feature_cache:
@@ -583,7 +587,7 @@ def train():
 
                 pbar.update(step_count)
 
-                step_summary_writer.add_summary(step_summary, current_step)
+                summary_writer.add_summary(step_summary, current_step)
 
                 if is_train and FLAGS.checkpoint_secs > 0 and time.time() - checkpoint_time > FLAGS.checkpoint_secs:
                     checkpoint_saver.save(session, checkpoint_path, global_step=current_step)
@@ -591,6 +595,15 @@ def train():
 
             pbar.finish()
             mean_loss = total_loss / step_count if step_count > 0 else 0.0
+
+            # save summary of loss this epoch
+            epoch_loss = session.run(
+                epoch_summary, 
+                feed_dict={'per_epoch_loss:0': mean_loss}
+            )
+
+            summary_writer.add_summary(epoch_loss, epoch)
+
             return mean_loss, step_count
 
         log_info('STARTING Optimization')
@@ -977,3 +990,5 @@ def run_script():
 
 if __name__ == '__main__':
     run_script()
+
+    
