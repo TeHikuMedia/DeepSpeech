@@ -90,7 +90,7 @@ def main():
                         help='Name of the TaskCluster scheme to use.')
     parser.add_argument('--branch', required=False,
                         help='Branch name to use. Defaulting to current content of VERSION file.')
-
+    parser.add_argument('--progress', required=False, type=int, help='Display progress')
     args = parser.parse_args()
 
     if not args.target and not args.decoder:
@@ -125,7 +125,7 @@ def main():
             print('No such scheme: %s' % args.source)
             sys.exit(1)
 
-    maybe_download_tc(target_dir=args.target, tc_url=get_tc_url(args.arch, args.artifact, args.branch))
+    maybe_download_tc(target_dir=args.target, tc_url=get_tc_url(args.arch, args.artifact, args.branch), progress = args.progress)
 
     if args.artifact == "convert_graphdef_memmapped_format":
         convert_graph_file = os.path.join(args.target, args.artifact)
