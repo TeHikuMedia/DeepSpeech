@@ -38,6 +38,10 @@ int json_candidate_transcripts = 3;
 
 int stream_size = 0;
 
+int extended_stream_size = 0;
+
+char* hot_words = NULL;
+
 void PrintHelp(const char* bin)
 {
     std::cout <<
@@ -54,8 +58,10 @@ void PrintHelp(const char* bin)
     "\t-t\t\t\t\tRun in benchmark mode, output mfcc & inference time\n"
     "\t--extended\t\t\tOutput string from extended metadata\n"
     "\t--json\t\t\t\tExtended output, shows word timings as JSON\n"
-    "\t--candidate_transcripts NUMBER\tNumber of candidate transcripts to include in output\n"
+    "\t--candidate_transcripts NUMBER\tNumber of candidate transcripts to include in JSON output\n"
     "\t--stream size\t\t\tRun in stream mode, output intermediate results\n"
+    "\t--extended_stream size\t\t\tRun in stream mode using metadata output, output intermediate results\n"
+    "\t--hot_words\t\t\tHot-words and their boosts. Word:Boost pairs are comma-separated\n"
     "\t--help\t\t\t\tShow help\n"
     "\t--version\t\t\tPrint version and exits\n";
     char* version = DS_Version();
@@ -66,7 +72,7 @@ void PrintHelp(const char* bin)
 
 bool ProcessArgs(int argc, char** argv)
 {
-    const char* const short_opts = "m:l:a:b:c:d:tejs:vh";
+    const char* const short_opts = "m:l:a:b:c:d:tejs:w:vh";
     const option long_opts[] = {
             {"model", required_argument, nullptr, 'm'},
             {"scorer", required_argument, nullptr, 'l'},
@@ -79,6 +85,8 @@ bool ProcessArgs(int argc, char** argv)
             {"json", no_argument, nullptr, 'j'},
             {"candidate_transcripts", required_argument, nullptr, 150},
             {"stream", required_argument, nullptr, 's'},
+            {"extended_stream", required_argument, nullptr, 'S'},
+            {"hot_words", required_argument, nullptr, 'w'},
             {"version", no_argument, nullptr, 'v'},
             {"help", no_argument, nullptr, 'h'},
             {nullptr, no_argument, nullptr, 0}
@@ -140,8 +148,16 @@ bool ProcessArgs(int argc, char** argv)
             stream_size = atoi(optarg);
             break;
 
+        case 'S':
+            extended_stream_size = atoi(optarg);
+            break;
+
         case 'v':
             has_versions = true;
+            break;
+
+        case 'w':
+            hot_words = optarg;
             break;
 
         case 'h': // -h or --help
@@ -164,7 +180,7 @@ bool ProcessArgs(int argc, char** argv)
         return false;
     }
 
-    if (stream_size < 0 || stream_size % 160 != 0) {
+    if ((stream_size < 0 || stream_size % 160 != 0) || (extended_stream_size < 0 || extended_stream_size % 160 != 0)) {
         std::cout <<
         "Stream buffer size must be multiples of 160\n";
         return false;

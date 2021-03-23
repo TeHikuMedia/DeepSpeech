@@ -5,11 +5,12 @@ build:
     - "node-gyp-cache"
     - "homebrew_builds-darwin-amd64"
     - "pyenv-darwin-amd64"
+    - "tf_darwin-amd64-opt"
   routes:
     - "index.project.deepspeech.deepspeech.native_client.${event.head.branchortag}.osx-ctc"
     - "index.project.deepspeech.deepspeech.native_client.${event.head.branchortag}.${event.head.sha}.osx-ctc"
     - "index.project.deepspeech.deepspeech.native_client.osx-ctc.${event.head.sha}"
-  tensorflow: "https://community-tc.services.mozilla.com/api/index/v1/task/project.deepspeech.tensorflow.pip.r1.15.ceb46aae5836a0f648a2c3da5942af2b7d1b98bf.osx/artifacts/public/home.tar.xz"
+  tensorflow: ${system.tensorflow.darwin_amd64.url}
   maxRunTime: 14400
   scripts:
     build: 'taskcluster/decoder-build.sh'

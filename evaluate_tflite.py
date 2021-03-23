@@ -10,13 +10,12 @@ import csv
 import os
 import sys
 
-from functools import partial
-from six.moves import zip, range
-from multiprocessing import JoinableQueue, Process, cpu_count, Manager
 from deepspeech import Model
-
-from util.evaluate_tools import calculate_and_print_report
-from util.flags import create_flags
+from deepspeech_training.util.evaluate_tools import calculate_and_print_report
+from deepspeech_training.util.flags import create_flags
+from functools import partial
+from multiprocessing import JoinableQueue, Process, cpu_count, Manager
+from six.moves import zip, range
 
 r'''
 This module should be self-contained:
@@ -33,6 +32,7 @@ Then run with a TF Lite model, a scorer and a CSV test file
 def tflite_worker(model, scorer, queue_in, queue_out, gpu_mask):
     os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_mask)
     ds = Model(model)
+    ds.enableExternalScorer(scorer)
 
     while True:
         try:

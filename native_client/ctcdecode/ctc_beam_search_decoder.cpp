@@ -4,7 +4,7 @@
 #include <cmath>
 #include <iostream>
 #include <limits>
-#include <map>
+#include <unordered_map>
 #include <utility>
 
 #include "decoder_utils.h"
@@ -18,7 +18,8 @@ DecoderState::init(const Alphabet& alphabet,
                    size_t beam_size,
                    double cutoff_prob,
                    size_t cutoff_top_n,
-                   std::shared_ptr<Scorer> ext_scorer)
+                   std::shared_ptr<Scorer> ext_scorer,
+                   std::unordered_map<std::string, float> hot_words)
 {
   // assign special ids
   abs_time_step_ = 0;
@@ -29,11 +30,14 @@ DecoderState::init(const Alphabet& alphabet,
   cutoff_prob_ = cutoff_prob;
   cutoff_top_n_ = cutoff_top_n;
   ext_scorer_ = ext_scorer;
+  hot_words_ = hot_words;
+  start_expanding_ = false;
 
   // init prefixes' root
   PathTrie *root = new PathTrie;
   root->score = root->log_prob_b_prev = 0.0;
   prefix_root_.reset(root);
+  prefix_root_->timestep_probs = &timestep_tree_root_;
   prefixes_.push_back(root);
 
   if (ext_scorer && (bool)(ext_scorer_->dictionary)) {
@@ -55,6 +59,19 @@ DecoderState::next(const double *probs,
   // prefix search over time
   for (size_t rel_time_step = 0; rel_time_step < time_dim; ++rel_time_step, ++abs_time_step_) {
     auto *prob = &probs[rel_time_step*class_dim];
+
+    // At the start of the decoding process, we delay beam expansion so that
+    // timings on the first letters is not incorrect. As soon as we see a
+    // timestep with blank probability lower than 0.999, we start expanding
+    // beams.
+    if (prob[blank_id_] < 0.999) {
+      start_expanding_ = true;
+    }
+
+    // If not expanding yet, just continue to next timestep.
+    if (!start_expanding_) {
+      continue;
+    }
 
     float min_cutoff = -NUM_FLT_INF;
     bool full_beam = false;
@@ -82,24 +99,46 @@ DecoderState::next(const double *probs,
         if (full_beam && log_prob_c + prefix->score < min_cutoff) {
           break;
         }
+        if (prefix->score == -NUM_FLT_INF) {
+          continue;
+        }
+        assert(prefix->timestep_probs != nullptr);
 
         // blank
         if (c == blank_id_) {
+          // compute probability of current path
+          float log_p = log_prob_c + prefix->score;
+
+          // combine current path with previous ones with the same prefix
+          // the blank label comes last, so we can compare log_prob_nb_cur with log_p
+          if (prefix->log_prob_nb_cur < log_p) {
+            // keep current timesteps
+            prefix->previous_timestep_probs = nullptr;
+          }
           prefix->log_prob_b_cur =
-              log_sum_exp(prefix->log_prob_b_cur, log_prob_c + prefix->score);
+              log_sum_exp(prefix->log_prob_b_cur, log_p);
           continue;
         }
 
         // repeated character
         if (c == prefix->character) {
+          // compute probability of current path
+          float log_p = log_prob_c + prefix->log_prob_nb_prev;
+
+          // combine current path with previous ones with the same prefix
+          if (prefix->log_prob_nb_cur < log_p) {
+            // keep current timesteps
+            prefix->previous_timestep_probs = nullptr;
+          }
           prefix->log_prob_nb_cur = log_sum_exp(
-              prefix->log_prob_nb_cur, log_prob_c + prefix->log_prob_nb_prev);
+              prefix->log_prob_nb_cur, log_p);
         }
 
         // get new prefix
-        auto prefix_new = prefix->get_path_trie(c, abs_time_step_, log_prob_c);
+        auto prefix_new = prefix->get_path_trie(c, log_prob_c);
 
         if (prefix_new != nullptr) {
+          // compute probability of current path
           float log_p = -NUM_FLT_INF;
 
           if (c == prefix->character &&
@@ -123,13 +162,36 @@ DecoderState::next(const double *probs,
               float score = 0.0;
               std::vector<std::string> ngram;
               ngram = ext_scorer_->make_ngram(prefix_to_score);
+
+              float hot_boost = 0.0;
+              if (!hot_words_.empty()) {
+                std::unordered_map<std::string, float>::iterator iter;
+                // increase prob of prefix for every word
+                // that matches a word in the hot-words list
+                for (std::string word : ngram) {
+                  iter = hot_words_.find(word);
+                  if ( iter != hot_words_.end() ) {
+                    // increase the log_cond_prob(prefix|LM)
+                    hot_boost += iter->second;
+                  }
+                }
+              }
+
               bool bos = ngram.size() < ext_scorer_->get_max_order();
-              score = ext_scorer_->get_log_cond_prob(ngram, bos) * ext_scorer_->alpha;
+              score = ( ext_scorer_->get_log_cond_prob(ngram, bos) + hot_boost ) * ext_scorer_->alpha;
               log_p += score;
               log_p += ext_scorer_->beta;
             }
           }
 
+          // combine current path with previous ones with the same prefix
+          if (prefix_new->log_prob_nb_cur < log_p) {
+            // record data needed to update timesteps
+            // the actual update will be done if nothing better is found
+            prefix_new->previous_timestep_probs = prefix->timestep_probs;
+            prefix_new->new_timestep = abs_time_step_;
+            prefix_new->new_timestep_prob = std::make_pair(abs_time_step_, log_prob_c);
+          }
           prefix_new->log_prob_nb_cur =
               log_sum_exp(prefix_new->log_prob_nb_cur, log_p);
         }
@@ -168,8 +230,9 @@ DecoderState::decode(size_t num_results) const
   // score the last word of each prefix that doesn't end with space
   if (ext_scorer_) {
     for (size_t i = 0; i < beam_size_ && i < prefixes_copy.size(); ++i) {
-      auto prefix = prefixes_copy[i];
-      if (!ext_scorer_->is_scoring_boundary(prefix->parent, prefix->character)) {
+      PathTrie* prefix = prefixes_copy[i];
+      PathTrie* prefix_boundary = ext_scorer_->is_utf8_mode() ? prefix : prefix->parent;
+      if (prefix_boundary && !ext_scorer_->is_scoring_boundary(prefix_boundary, prefix->character)) {
         float score = 0.0;
         std::vector<std::string> ngram = ext_scorer_->make_ngram(prefix);
         bool bos = ngram.size() < ext_scorer_->get_max_order();
@@ -190,20 +253,17 @@ DecoderState::decode(size_t num_results) const
   std::vector<Output> outputs;
   outputs.reserve(num_returned);
 
-  // compute aproximate ctc score as the return score, without affecting the
-  // return order of decoding result. To delete when decoder gets stable.
   for (size_t i = 0; i < num_returned; ++i) {
     Output output;
-    prefixes_copy[i]->get_path_vec(output.tokens, output.timesteps, output.logprobs);
-    double approx_ctc = scores[prefixes_copy[i]];
-    if (ext_scorer_) {
-      auto words = ext_scorer_->split_labels_into_scored_units(output.tokens);
-      // remove term insertion weight
-      approx_ctc -= words.size() * ext_scorer_->beta;
-      // remove language model weight
-      approx_ctc -= (ext_scorer_->get_sent_log_prob(words)) * ext_scorer_->alpha;
+    prefixes_copy[i]->get_path_vec(output.tokens);
+
+    for (std::pair<unsigned int, float> pair :
+      get_history(prefixes_copy[i]->timestep_probs, &timestep_tree_root_)) {
+        output.timesteps.push_back(pair.first);
+        output.probabilities.push_back(pair.second);
     }
-    output.confidence = -approx_ctc;
+    assert(output.tokens.size() == output.timestep_probs.size());
+    output.confidence = scores[prefixes_copy[i]];
     outputs.push_back(output);
   }
 
@@ -218,12 +278,15 @@ std::vector<Output> ctc_beam_search_decoder(
     size_t beam_size,
     double cutoff_prob,
     size_t cutoff_top_n,
-    std::shared_ptr<Scorer> ext_scorer)
+    std::shared_ptr<Scorer> ext_scorer,
+    std::unordered_map<std::string, float> hot_words,
+    size_t num_results)
 {
+  VALID_CHECK_EQ(alphabet.GetSize()+1, class_dim, "Number of output classes in acoustic model does not match number of labels in the alphabet file. Alphabet file must be the same one that was used to train the acoustic model.");
   DecoderState state;
-  state.init(alphabet, beam_size, cutoff_prob, cutoff_top_n, ext_scorer);
+  state.init(alphabet, beam_size, cutoff_prob, cutoff_top_n, ext_scorer, hot_words);
   state.next(probs, time_dim, class_dim);
-  return state.decode();
+  return state.decode(num_results);
 }
 
 std::vector<std::vector<Output>>
@@ -239,7 +302,9 @@ ctc_beam_search_decoder_batch(
     size_t num_processes,
     double cutoff_prob,
     size_t cutoff_top_n,
-    std::shared_ptr<Scorer> ext_scorer)
+    std::shared_ptr<Scorer> ext_scorer,
+    std::unordered_map<std::string, float> hot_words,
+    size_t num_results)
 {
   VALID_CHECK_GT(num_processes, 0, "num_processes must be nonnegative!");
   VALID_CHECK_EQ(batch_size, seq_lengths_size, "must have one sequence length per batch element");
@@ -257,7 +322,9 @@ ctc_beam_search_decoder_batch(
                                   beam_size,
                                   cutoff_prob,
                                   cutoff_top_n,
-                                  ext_scorer));
+                                  ext_scorer,
+                                  hot_words,
+                                  num_results));
   }
 
   // get decoding results

@@ -2,7 +2,7 @@ $if: '(event.event != "push") && (event.event != "tag")'
 then:
   taskId: ${taskcluster.taskId}
   provisionerId: ${taskcluster.generic.provisionerId}
-  workerType: ${taskcluster.generic.workerType}
+  workerType: ${macOS.dsTests}
   taskGroupId: ${taskcluster.taskGroupId}
   schedulerId: ${taskcluster.schedulerId}
   dependencies:
@@ -30,11 +30,9 @@ then:
         darwin_amd64_build: { $eval: as_slugid("darwin-amd64-cpu-opt") }
         darwin_amd64_tflite: { $eval: as_slugid("darwin-amd64-tflite-opt") }
       in:
-        DEEPSPEECH_ARTIFACTS_ROOT: https://community-tc.services.mozilla.com/api/queue/v1/task/${darwin_amd64_build}/artifacts/public
-        DEEPSPEECH_ARTIFACTS_TFLITE_ROOT: https://community-tc.services.mozilla.com/api/queue/v1/task/${darwin_amd64_tflite}/artifacts/public
         DEEPSPEECH_TEST_MODEL: https://community-tc.services.mozilla.com/api/queue/v1/task/${training}/artifacts/public/output_graph.pb
-        DEEPSPEECH_PROD_MODEL: https://github.com/reuben/DeepSpeech/releases/download/v0.6.0-alpha.15/output_graph.pb
-        DEEPSPEECH_PROD_MODEL_MMAP: https://github.com/reuben/DeepSpeech/releases/download/v0.6.0-alpha.15/output_graph.pbmm
+        DEEPSPEECH_PROD_MODEL: https://github.com/reuben/DeepSpeech/releases/download/v0.7.0-alpha.3/output_graph.pb
+        DEEPSPEECH_PROD_MODEL_MMAP: https://github.com/reuben/DeepSpeech/releases/download/v0.7.0-alpha.3/output_graph.pbmm
         EXPECTED_TENSORFLOW_VERSION: "${build.tensorflow_git_desc}"
 
     command:
@@ -46,7 +44,7 @@ then:
           in: >
             export TASKCLUSTER_ARTIFACTS="$(pwd)/public/" &&
             export TASKCLUSTER_ORIG_TASKDIR="$(pwd)" &&
-            (mkdir ../tc-workdir/ || rm -fr ../tc-workdir/*) && cd ../tc-workdir/ &&
+            (rm -fr ../tc-workdir/ ; mkdir ../tc-workdir/) && cd ../tc-workdir/ &&
             export TASKCLUSTER_TASK_DIR="$(pwd)" &&
             export TASKCLUSTER_TMP_DIR="$TASKCLUSTER_TASK_DIR/tmp" &&
             export LC_ALL=C &&

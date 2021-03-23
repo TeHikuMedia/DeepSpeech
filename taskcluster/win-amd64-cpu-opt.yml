@@ -8,7 +8,8 @@ build:
     - "node-gyp-cache"
     - "swig-win-amd64"
     - "pyenv-win-amd64"
-  tensorflow: "https://community-tc.services.mozilla.com/api/index/v1/task/project.deepspeech.tensorflow.pip.r1.15.ceb46aae5836a0f648a2c3da5942af2b7d1b98bf.win/artifacts/public/home.tar.xz"
+    - "tf_win-amd64-cpu-opt"
+  tensorflow: ${system.tensorflow.win_amd64_cpu.url}
   scripts:
     build: "taskcluster/win-build.sh"
     package: "taskcluster/win-package.sh"

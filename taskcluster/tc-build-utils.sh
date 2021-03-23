@@ -33,6 +33,8 @@ do_deepspeech_python_build()
     virtualenv_activate "${pyalias}" "deepspeech"
 
     python --version
+    pip --version
+    pip3 --version
     which pip
     which pip3
 
@@ -105,23 +107,22 @@ do_deepspeech_nodejs_build()
   # Python 2.7 is required for node-pre-gyp, it is only required to force it on
   # Windows
   if [ "${OS}" = "${TC_MSYS_VERSION}" ]; then
-    NPM_ROOT=$(cygpath -u "$(npm root)")
-    PYTHON27=":/c/Python27"
-    # node-gyp@5.x behaves erratically with VS2015 and MSBuild.exe detection
-    npm install node-gyp@4.x node-pre-gyp
-  else
-    NPM_ROOT="$(npm root)"
-    npm install node-gyp@5.x node-pre-gyp
+    PYTHON27="/c/Python27"
   fi
 
-  export PATH="$NPM_ROOT/.bin/${PYTHON27}:$PATH"
+  export PATH="${PYTHON27}:$PATH"
 
-  for node in ${SUPPORTED_NODEJS_VERSIONS}; do
+  devDir=$DS_ROOT_TASK/node-gyp-cache/
+  nodejsDevDir=${devDir}/nodejs/
+  electronjsDevDir=${devDir}/electronjs/
+
+  for node in ${SUPPORTED_NODEJS_BUILD_VERSIONS}; do
     EXTRA_CFLAGS="${EXTRA_LOCAL_CFLAGS}" EXTRA_LDFLAGS="${EXTRA_LOCAL_LDFLAGS}" EXTRA_LIBS="${EXTRA_LOCAL_LIBS}" make -C native_client/javascript \
       TARGET=${SYSTEM_TARGET} \
       RASPBIAN=${SYSTEM_RASPBIAN} \
       TFDIR=${DS_TFDIR} \
       NODE_ABI_TARGET=--target=$node \
+      NODE_DEVDIR=--devdir=${nodejsDevDir} \
       clean node-wrapper
   done;
 
@@ -132,6 +133,7 @@ do_deepspeech_nodejs_build()
       TFDIR=${DS_TFDIR} \
       NODE_ABI_TARGET=--target=$electron \
       NODE_DIST_URL=--disturl=https://electronjs.org/headers \
+      NODE_DEVDIR=--devdir=${electronjsDevDir} \
       NODE_RUNTIME=--runtime=electron \
       clean node-wrapper
   done;
@@ -157,16 +159,10 @@ do_deepspeech_npm_package()
   # Python 2.7 is required for node-pre-gyp, it is only required to force it on
   # Windows
   if [ "${OS}" = "${TC_MSYS_VERSION}" ]; then
-    NPM_ROOT=$(cygpath -u "$(npm root)")
-    PYTHON27=":/c/Python27"
-    # node-gyp@5.x behaves erratically with VS2015 and MSBuild.exe detection
-    npm install node-gyp@4.x node-pre-gyp
-  else
-    NPM_ROOT="$(npm root)"
-    npm install node-gyp@5.x node-pre-gyp
+    PYTHON27="/c/Python27"
   fi
 
-  export PATH="$NPM_ROOT/.bin/$PYTHON27:$PATH"
+  export PATH="${NPM_BIN}${PYTHON27}:$PATH"
 
   all_tasks="$(curl -s https://community-tc.services.mozilla.com/api/queue/v1/task/${TASK_ID} | python -c 'import json; import sys; print(" ".join(json.loads(sys.stdin.read())["dependencies"]));')"
 
@@ -185,26 +181,31 @@ do_deepspeech_npm_package()
 
 do_bazel_build()
 {
-  cd ${DS_ROOT_TASK}/DeepSpeech/tf
+  local _opt_or_dbg=${1:-"opt"}
+
+  cd ${DS_TFDIR}
   eval "export ${BAZEL_ENV_FLAGS}"
 
-  if is_patched_bazel; then
-    find ${DS_ROOT_TASK}/DeepSpeech/tf/bazel-out/ -iname "*.ckd" | tar -cf ${DS_ROOT_TASK}/DeepSpeech/bazel-ckd-tf.tar -T -
+  if [ "${_opt_or_dbg}" = "opt" ]; then
+    if is_patched_bazel; then
+      find ${DS_ROOT_TASK}/DeepSpeech/ds/tensorflow/bazel-out/ -iname "*.ckd" | tar -cf ${DS_ROOT_TASK}/DeepSpeech/bazel-ckd-tf.tar -T -
+    fi;
   fi;
 
   bazel ${BAZEL_OUTPUT_USER_ROOT} build \
-    -s --explain bazel_monolithic.log --verbose_explanations --experimental_strict_action_env --workspace_status_command="bash native_client/bazel_workspace_status_cmd.sh" --config=monolithic -c opt ${BAZEL_BUILD_FLAGS} ${BAZEL_TARGETS}
+    -s --explain bazel_monolithic.log --verbose_explanations --experimental_strict_action_env --workspace_status_command="bash native_client/bazel_workspace_status_cmd.sh" --config=monolithic -c ${_opt_or_dbg} ${BAZEL_BUILD_FLAGS} ${BAZEL_TARGETS}
 
-  if is_patched_bazel; then
-    find ${DS_ROOT_TASK}/DeepSpeech/tf/bazel-out/ -iname "*.ckd" | tar -cf ${DS_ROOT_TASK}/DeepSpeech/bazel-ckd-ds.tar -T -
+  if [ "${_opt_or_dbg}" = "opt" ]; then
+    if is_patched_bazel; then
+      find ${DS_ROOT_TASK}/DeepSpeech/ds/tensorflow/bazel-out/ -iname "*.ckd" | tar -cf ${DS_ROOT_TASK}/DeepSpeech/bazel-ckd-ds.tar -T -
+    fi;
+    verify_bazel_rebuild "${DS_ROOT_TASK}/DeepSpeech/ds/tensorflow/bazel_monolithic.log"
   fi;
-
-  verify_bazel_rebuild "${DS_ROOT_TASK}/DeepSpeech/tf/bazel_monolithic.log"
 }
 
 shutdown_bazel()
 {
-  cd ${DS_ROOT_TASK}/DeepSpeech/tf
+  cd ${DS_TFDIR}
   bazel ${BAZEL_OUTPUT_USER_ROOT} shutdown
 }
 
@@ -241,9 +242,9 @@ do_deepspeech_netframework_build()
   cd ${DS_DSDIR}/native_client/dotnet
 
   # Setup dependencies
-  nuget install DeepSpeechConsole/packages.config -OutputDirectory packages/
+  nuget restore DeepSpeech.sln
 
-  MSBUILD="$(cygpath 'C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\MSBuild\15.0\Bin\MSBuild.exe')"
+  MSBUILD="$(cygpath 'C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\MSBuild\Current\Bin\MSBuild.exe')"
 
   # We need MSYS2_ARG_CONV_EXCL='/' otherwise the '/' of CLI parameters gets mangled and disappears
   # We build the .NET Client for .NET Framework v4.5,v4.6,v4.7
@@ -252,22 +253,29 @@ do_deepspeech_netframework_build()
     DeepSpeechClient/DeepSpeechClient.csproj \
     /p:Configuration=Release \
     /p:Platform=x64 \
-    /p:TargetFrameworkVersion="v4.5.2" \
+    /p:TargetFramework="net452" \
     /p:OutputPath=bin/nuget/x64/v4.5
 
   MSYS2_ARG_CONV_EXCL='/' "${MSBUILD}" \
     DeepSpeechClient/DeepSpeechClient.csproj \
     /p:Configuration=Release \
     /p:Platform=x64 \
-    /p:TargetFrameworkVersion="v4.6" \
+    /p:TargetFramework="net46" \
     /p:OutputPath=bin/nuget/x64/v4.6
 
   MSYS2_ARG_CONV_EXCL='/' "${MSBUILD}" \
     DeepSpeechClient/DeepSpeechClient.csproj \
     /p:Configuration=Release \
     /p:Platform=x64 \
-    /p:TargetFrameworkVersion="v4.7" \
+    /p:TargetFramework="net47" \
     /p:OutputPath=bin/nuget/x64/v4.7
+
+  MSYS2_ARG_CONV_EXCL='/' "${MSBUILD}" \
+    DeepSpeechClient/DeepSpeechClient.csproj \
+    /p:Configuration=Release \
+    /p:Platform=x64 \
+    /p:TargetFramework="uap10.0" \
+    /p:OutputPath=bin/nuget/x64/uap10.0
 
   MSYS2_ARG_CONV_EXCL='/' "${MSBUILD}" \
     DeepSpeechConsole/DeepSpeechConsole.csproj \
@@ -275,14 +283,14 @@ do_deepspeech_netframework_build()
     /p:Platform=x64
 }
 
-do_deepspeech_netframework_wpf_example_build()
+do_deepspeech_netframework_wpf_build()
 {
-  cd ${DS_EXAMPLEDIR}/net_framework
+  cd ${DS_DSDIR}/native_client/dotnet
 
   # Setup dependencies
   nuget install DeepSpeechWPF/packages.config -OutputDirectory DeepSpeechWPF/packages/
 
-  MSBUILD="$(cygpath 'C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\MSBuild\15.0\Bin\MSBuild.exe')"
+  MSBUILD="$(cygpath 'C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\MSBuild\Current\Bin\MSBuild.exe')"
 
   # We need MSYS2_ARG_CONV_EXCL='/' otherwise the '/' of CLI parameters gets mangled and disappears
   # Build WPF example
@@ -317,6 +325,9 @@ do_nuget_build()
   mkdir -p nupkg/lib/net47/
   cp DeepSpeechClient/bin/nuget/x64/v4.7/DeepSpeechClient.dll nupkg/lib/net47/
 
+  mkdir -p nupkg/lib/uap10.0/
+  cp DeepSpeechClient/bin/nuget/x64/uap10.0/DeepSpeechClient.dll nupkg/lib/uap10.0/
+
   PROJECT_VERSION=$(strip "${DS_VERSION}")
   sed \
     -e "s/\$NUPKG_ID/${PROJECT_NAME}/" \
@@ -324,4 +335,22 @@ do_nuget_build()
     nupkg/deepspeech.nuspec.in > nupkg/deepspeech.nuspec && cat nupkg/deepspeech.nuspec
 
   nuget pack nupkg/deepspeech.nuspec
+}
+
+do_deepspeech_ios_framework_build()
+{
+  arch=$1
+  cp ${DS_TFDIR}/bazel-bin/native_client/libdeepspeech.so ${DS_DSDIR}/native_client/swift/libdeepspeech.so
+  cd ${DS_DSDIR}/native_client/swift
+  case $arch in
+  "--x86_64")
+    iosSDK="iphonesimulator"
+    xcodeArch="x86_64"
+    ;;
+  "--arm64")
+    iosSDK="iphoneos"
+    xcodeArch="arm64"
+    ;;
+  esac
+  xcodebuild -workspace deepspeech_ios.xcworkspace -scheme deepspeech_ios_test -configuration Release -arch "${xcodeArch}" -sdk "${iosSDK}" -derivedDataPath DerivedData CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
 }

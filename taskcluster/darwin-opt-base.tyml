@@ -1,6 +1,6 @@
 taskId: ${taskcluster.taskId}
 provisionerId: ${taskcluster.generic.provisionerId}
-workerType: ${taskcluster.generic.workerType}
+workerType: ${macOS.dsBuild}
 taskGroupId: ${taskcluster.taskGroupId}
 schedulerId: ${taskcluster.schedulerId}
 dependencies:
@@ -35,11 +35,8 @@ payload:
   # There is no VM yet running tasks on OSX
   # so one should install by hand:
   # - brew
-  # - xcode (brew would install)
-  # - brew install gnu-tar
-  # - brew install git
-  # - brew install pixz
-  # - brew cask install java
+  # - Xcode 10.1 in /Applications/Xcode.app, then sudo chown -R root:wheel /Applications/Xcode.app
+  # - brew install gnu-tar git pixz wget coreutils pyenv-virtualenv
   # - sudo easy_install pip
 
   command:
@@ -49,7 +46,7 @@ payload:
       - >
         export TASKCLUSTER_ARTIFACTS="$(pwd)/public/" &&
         export TASKCLUSTER_ORIG_TASKDIR="$(pwd)" &&
-        (mkdir ../tc-workdir/ || rm -fr ../tc-workdir/*) && cd ../tc-workdir/ &&
+        (rm -fr ../tc-workdir/ ; mkdir ../tc-workdir/) && cd ../tc-workdir/ &&
         export TASKCLUSTER_TASK_DIR="$(pwd)" &&
         export LC_ALL=C &&
         export MACOSX_DEPLOYMENT_TARGET=10.10 &&
@@ -60,9 +57,8 @@ payload:
         cd $TASKCLUSTER_ORIG_TASKDIR/ && rm -fr $TASKCLUSTER_TASK_DIR/ &&
         exit $TASKCLUSTER_TASK_EXIT_CODE" 0 &&
         (pixz -d < $TASKCLUSTER_ORIG_TASKDIR/home.tar.xz | gtar -C $TASKCLUSTER_TASK_DIR -xf - ) &&
-        git clone --quiet ${event.head.repo.url} $TASKCLUSTER_TASK_DIR/DeepSpeech/ds/ &&
-        cd $TASKCLUSTER_TASK_DIR/DeepSpeech/ds && git checkout --quiet ${event.head.sha} &&
-        ln -s $TASKCLUSTER_TASK_DIR/DeepSpeech/ds/native_client/ $TASKCLUSTER_TASK_DIR/DeepSpeech/tf/native_client &&
+        cd $TASKCLUSTER_TASK_DIR/DeepSpeech/ds && git remote set-url origin ${event.head.repo.url} && git fetch origin && git checkout --quiet ${event.head.sha} &&
+        git submodule --quiet sync tensorflow/ && git submodule --quiet update tensorflow/ &&
         cd $TASKCLUSTER_TASK_DIR &&
         (mkdir pyenv-root/ && gtar -C pyenv-root/ -xf $TASKCLUSTER_ORIG_TASKDIR/pyenv.tar.gz) &&
         (mkdir homebrew-builds/ && gtar -C homebrew-builds/ -xf $TASKCLUSTER_ORIG_TASKDIR/homebrew-builds.tar.gz) &&
@@ -88,10 +84,6 @@ payload:
       format: tar.gz
       content:
         url: ${system.node_gyp_cache.url}
-    - directory: ds-swig
-      format: tar.gz
-      content:
-        url: ${system.swig.cache.darwin_amd64}
     - file: home.tar.xz
       content:
         url: ${build.tensorflow}

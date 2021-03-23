@@ -333,12 +333,60 @@ int
 DS_EnableExternalScorer(ModelState* aCtx,
                         const char* aScorerPath)
 {
-  aCtx->scorer_.reset(new Scorer());
-  int err = aCtx->scorer_->init(aScorerPath, aCtx->alphabet_);
+  std::unique_ptr<Scorer> scorer(new Scorer());
+  int err = scorer->init(aScorerPath, aCtx->alphabet_);
   if (err != 0) {
     return DS_ERR_INVALID_SCORER;
   }
+  aCtx->scorer_ = std::move(scorer);
   return DS_ERR_OK;
+}
+
+int
+DS_AddHotWord(ModelState* aCtx,
+              const char* word,
+              float boost)
+{
+  if (aCtx->scorer_) {
+    const int size_before = aCtx->hot_words_.size();
+    aCtx->hot_words_.insert( std::pair<std::string,float> (word, boost) );
+    const int size_after = aCtx->hot_words_.size();
+    if (size_before == size_after) {
+      return DS_ERR_FAIL_INSERT_HOTWORD;
+    }
+    return DS_ERR_OK;
+  }
+  return DS_ERR_SCORER_NOT_ENABLED;
+}
+
+int
+DS_EraseHotWord(ModelState* aCtx,
+                const char* word)
+{
+  if (aCtx->scorer_) {
+    const int size_before = aCtx->hot_words_.size();
+    int err = aCtx->hot_words_.erase(word);
+    const int size_after = aCtx->hot_words_.size();
+    if (size_before == size_after) {
+      return DS_ERR_FAIL_ERASE_HOTWORD;
+    }
+    return DS_ERR_OK;
+  }
+  return DS_ERR_SCORER_NOT_ENABLED;
+}
+
+int
+DS_ClearHotWords(ModelState* aCtx)
+{
+  if (aCtx->scorer_) {
+    aCtx->hot_words_.clear();
+    const int size_after = aCtx->hot_words_.size();
+    if (size_after != 0) {
+      return DS_ERR_FAIL_CLEAR_HOTWORD;
+    }
+    return DS_ERR_OK;
+  }
+  return DS_ERR_SCORER_NOT_ENABLED;
 }
 
 int
@@ -389,7 +437,8 @@ DS_CreateStream(ModelState* aCtx,
                            aCtx->beam_width_,
                            cutoff_prob,
                            cutoff_top_n,
-                           aCtx->scorer_);
+                           aCtx->scorer_,
+                           aCtx->hot_words_);
 
   *retval = ctx.release();
   return DS_ERR_OK;
@@ -499,42 +548,4 @@ char*
 DS_Version()
 {
   return strdup(ds_version());
-}
-
-char*
-DS_ErrorCodeToErrorMessage(int aErrorCode)
-{
-  switch(aErrorCode)
-  {
-    case DS_ERR_OK:
-      return strdup("No error.");
-    case DS_ERR_NO_MODEL:
-      return strdup("Missing model information.");
-    case DS_ERR_INVALID_ALPHABET:
-      return strdup("Invalid alphabet embedded in model. (Data corruption?)");
-    case DS_ERR_INVALID_SHAPE:
-      return strdup("Invalid model shape.");
-    case DS_ERR_INVALID_SCORER:
-      return strdup("Invalid scorer file.");
-    case DS_ERR_FAIL_INIT_MMAP:
-      return strdup("Failed to initialize memory mapped model.");
-    case DS_ERR_FAIL_INIT_SESS:
-      return strdup("Failed to initialize the session.");
-    case DS_ERR_FAIL_INTERPRETER:
-      return strdup("Interpreter failed.");
-    case DS_ERR_FAIL_RUN_SESS:
-      return strdup("Failed to run the session.");
-    case DS_ERR_FAIL_CREATE_STREAM:
-      return strdup("Error creating the stream.");
-    case DS_ERR_FAIL_READ_PROTOBUF:
-      return strdup("Error reading the proto buffer model file.");
-    case DS_ERR_FAIL_CREATE_SESS:
-      return strdup("Failed to create session.");
-    case DS_ERR_MODEL_INCOMPATIBLE:
-      return strdup("Incompatible model.");
-    case DS_ERR_SCORER_NOT_ENABLED:
-      return strdup("External scorer is not enabled.");
-    default:
-      return strdup("Unknown error, please make sure you are using the correct native binary.");
-  }
 }

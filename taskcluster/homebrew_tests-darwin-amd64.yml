@@ -1,9 +1,11 @@
 build:
-  template_file: homebrew-darwin-opt-base.tyml
-  homebrew:
-    url: 'https://community-tc.services.mozilla.com/api/index/v1/task/project.deepspeech.homebrew_tests.4/artifacts/public/homebrew_tests.tar.gz'
-    namespace: 'project.deepspeech.homebrew_tests.4'
+  template_file: generic_tc_caching-darwin-opt-base.tyml
+  cache:
+    artifact_url: ${system.homebrew_tests.url}
+    artifact_namespace: ${system.homebrew_tests.namespace}
+  workerType: ${macOS.dsBuild}
   scripts:
+    setup: "taskcluster/tc-true.sh"
     build: "taskcluster/homebrew-build.sh --tests"
     package: "taskcluster/homebrew-package.sh --tests"
   metadata:

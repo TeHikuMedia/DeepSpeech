@@ -1,12 +1,6 @@
-.Net Framework
+.NET Framework
 ==============
 
-DeepSpeech Interface
---------------------
-
-.. doxygeninterface:: DeepSpeechClient::Interfaces::IDeepSpeech
-   :project: deepspeech-dotnet
-   :members:
 
 DeepSpeech Class
 ----------------
@@ -16,14 +10,16 @@ DeepSpeech Class
    :members:
 
 DeepSpeechStream Class
-----------------
+----------------------
 
-.. doxygenclass:: DeepSpeechClient::DeepSpeechStream
+.. doxygenclass:: DeepSpeechClient::Models::DeepSpeechStream
    :project: deepspeech-dotnet
    :members:
 
 ErrorCodes
 ----------
+
+See also the main definition including descriptions for each error in :ref:`error-codes`.
 
 .. doxygenenum:: DeepSpeechClient::Enums::ErrorCodes
    :project: deepspeech-dotnet
@@ -48,3 +44,10 @@ TokenMetadata
 .. doxygenclass:: DeepSpeechClient::Models::TokenMetadata
    :project: deepspeech-dotnet
    :members: Text, Timestep, StartTime
+
+DeepSpeech Interface
+--------------------
+
+.. doxygeninterface:: DeepSpeechClient::Interfaces::IDeepSpeech
+   :project: deepspeech-dotnet
+   :members:

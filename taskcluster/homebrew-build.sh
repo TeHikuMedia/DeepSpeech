@@ -29,7 +29,7 @@ do_prepare_homebrew()
   export PATH=${_brew_instance}/bin:$PATH
   export HOMEBREW_LOGS="${_brew_instance}/homebrew.logs/"
   export HOMEBREW_CACHE="${_brew_instance}/homebrew.cache/"
-  export BREW_FORMULAS_COMMIT=c3f06e4f17853bea8c35742923a9c43d3a244d35
+  export BREW_FORMULAS_COMMIT=ddd39cf1b71452bfe9c5f17f45cc0118796b20d3
 
   # Never fail on pre-existing homebrew/ directory
   mkdir -p "${_brew_instance}" || true
@@ -40,27 +40,30 @@ do_prepare_homebrew()
     curl -L ${BREW_URL} | tar xz --strip 1 -C "${_brew_instance}"
   fi;
 
-  check_homebrew
-
-  # Force an upgrade to fetch formulae
-  brew search openssl
+  check_homebrew "${_brew_instance}"
 
   # Then we force onto a specific well-known commit
+  mkdir -p "$(brew --prefix)/Library/Taps/homebrew/homebrew-core"
   pushd "$(brew --prefix)/Library/Taps/homebrew/homebrew-core"
-    git fetch origin && git checkout ${BREW_FORMULAS_COMMIT}
+    git init
+    git remote add origin https://github.com/Homebrew/homebrew-core.git
+    git fetch origin
+    git checkout ${BREW_FORMULAS_COMMIT}
   popd
 }
 
 check_homebrew()
 {
-  echo "local brew prefix ..."
-  local_prefix=$(brew --prefix)
-  echo "${local_prefix}"
+  local _expected_prefix=$1
 
-  if [ "${BUILDS_BREW}" != "${local_prefix}" ]; then
+  echo "local brew prefix ..."
+  local _local_prefix=$(brew --prefix)
+  echo "${_local_prefix}"
+
+  if [ "${_expected_prefix}" != "${_local_prefix}" ]; then
     echo "Weird state:"
-    echo "BUILDS_BREW=${BUILDS_BREW}"
-    echo "local_prefix=${local_prefix}"
+    echo "_expected_prefix=${_expected_prefix}"
+    echo "_local_prefix=${_local_prefix}"
     exit 1
   fi;
 }
@@ -90,7 +93,7 @@ prepare_homebrew_tests()
 
   install_pkg_homebrew "nvm"
     source "${TESTS_BREW}/opt/nvm/nvm.sh"
-    for node_ver in ${SUPPORTED_NODEJS_VERSIONS};
+    for node_ver in ${SUPPORTED_NODEJS_TESTS_VERSIONS};
     do
       nvm install ${node_ver}
     done;

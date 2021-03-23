@@ -5,7 +5,7 @@ using System.IO;
 namespace DeepSpeechClient.Interfaces
 {
     /// <summary>
-    /// Client interface of the Mozilla's DeepSpeech implementation.
+    /// Client interface of Mozilla's DeepSpeech implementation.
     /// </summary>
     public interface IDeepSpeech : IDisposable
     {
@@ -43,6 +43,27 @@ namespace DeepSpeechClient.Interfaces
         /// <exception cref="ArgumentException">Thrown when the native binary failed to enable decoding with an external scorer.</exception>
         /// <exception cref="FileNotFoundException">Thrown when cannot find the scorer file.</exception>
         unsafe void EnableExternalScorer(string aScorerPath);
+
+        /// <summary>
+        /// Add a hot-word.
+        /// </summary>
+        /// <param name="aWord">Some word</param>
+        /// <param name="aBoost">Some boost</param>
+        /// <exception cref="ArgumentException">Thrown on failure.</exception>
+        unsafe void AddHotWord(string aWord, float aBoost);
+
+        /// <summary>
+        /// Erase entry for a hot-word.
+        /// </summary>
+        /// <param name="aWord">Some word</param>
+        /// <exception cref="ArgumentException">Thrown on failure.</exception>
+        unsafe void EraseHotWord(string aWord);
+
+        /// <summary>
+        /// Clear all hot-words.
+        /// </summary>
+        /// <exception cref="ArgumentException">Thrown on failure.</exception>
+        unsafe void ClearHotWords();
 
         /// <summary>
         /// Disable decoding using an external scorer.

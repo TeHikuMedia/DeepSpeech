@@ -16,10 +16,13 @@ class DecoderState {
   size_t beam_size_;
   double cutoff_prob_;
   size_t cutoff_top_n_;
+  bool start_expanding_;
 
   std::shared_ptr<Scorer> ext_scorer_;
   std::vector<PathTrie*> prefixes_;
   std::unique_ptr<PathTrie> prefix_root_;
+  TimestepProbabilityTreeNode timestep_tree_root_{nullptr, std::make_pair(0,0.0f)};
+  std::unordered_map<std::string, float> hot_words_;
 
 public:
   DecoderState() = default;
@@ -46,7 +49,8 @@ public:
            size_t beam_size,
            double cutoff_prob,
            size_t cutoff_top_n,
-           std::shared_ptr<Scorer> ext_scorer);
+           std::shared_ptr<Scorer> ext_scorer,
+           std::unordered_map<std::string, float> hot_words);
 
   /* Send data to the decoder
    *
@@ -86,6 +90,9 @@ public:
  *     ext_scorer: External scorer to evaluate a prefix, which consists of
  *                 n-gram language model scoring and word insertion term.
  *                 Default null, decoding the input sample without scorer.
+ *     hot_words: A map of hot-words and their corresponding boosts
+ *                The hot-word is a string and the boost is a float.
+ *     num_results: Number of beams to return.
  * Return:
  *     A vector where each element is a pair of score and decoding result,
  *     in descending order.
@@ -99,7 +106,9 @@ std::vector<Output> ctc_beam_search_decoder(
     size_t beam_size,
     double cutoff_prob,
     size_t cutoff_top_n,
-    std::shared_ptr<Scorer> ext_scorer);
+    std::shared_ptr<Scorer> ext_scorer,
+    std::unordered_map<std::string, float> hot_words,
+    size_t num_results=1);
 
 /* CTC Beam Search Decoder for batch data
  * Parameters:
@@ -113,6 +122,9 @@ std::vector<Output> ctc_beam_search_decoder(
  *     ext_scorer: External scorer to evaluate a prefix, which consists of
  *                 n-gram language model scoring and word insertion term.
  *                 Default null, decoding the input sample without scorer.
+ *     hot_words: A map of hot-words and their corresponding boosts
+ *                The hot-word is a string and the boost is a float.
+ *     num_results: Number of beams to return.
  * Return:
  *     A 2-D vector where each element is a vector of beam search decoding
  *     result for one audio sample.
@@ -130,6 +142,8 @@ ctc_beam_search_decoder_batch(
     size_t num_processes,
     double cutoff_prob,
     size_t cutoff_top_n,
-    std::shared_ptr<Scorer> ext_scorer);
+    std::shared_ptr<Scorer> ext_scorer,
+    std::unordered_map<std::string, float> hot_words,
+    size_t num_results=1);
 
 #endif  // CTC_BEAM_SEARCH_DECODER_H_

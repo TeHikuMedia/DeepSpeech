@@ -8,6 +8,13 @@ extract_python_versions "$1" "pyver" "pyver_pkg" "py_unicode_type" "pyconf" "pya
 
 bitrate=$2
 
+decoder_src=$3
+
+if [ "$decoder_src" = "--pypi" ]; then
+    # Disable automatically picking up decoder package built in this CI group
+    export DECODER_ARTIFACTS_ROOT=""
+fi
+
 mkdir -p ${TASKCLUSTER_ARTIFACTS} || true
 mkdir -p /tmp/train || true
 mkdir -p /tmp/train_tflite || true
@@ -16,15 +23,10 @@ virtualenv_activate "${pyalias}" "deepspeech"
 
 set -o pipefail
 pip install --upgrade pip==19.3.1 setuptools==45.0.0 wheel==0.33.6 | cat
-pip install --upgrade -r ${HOME}/DeepSpeech/ds/requirements.txt | cat
-set +o pipefail
-
-pushd ${HOME}/DeepSpeech/ds/
-    verify_ctcdecoder_url
+pushd ${HOME}/DeepSpeech/ds
+    pip install --upgrade . | cat
 popd
-
-decoder_pkg_url=$(get_python_pkg_url ${pyver_pkg} ${py_unicode_type} "ds_ctcdecoder" "${DECODER_ARTIFACTS_ROOT}")
-LD_LIBRARY_PATH=${PY37_LDPATH}:$LD_LIBRARY_PATH pip install --verbose --only-binary :all: ${PY37_SOURCE_PACKAGE} ${decoder_pkg_url} | cat
+set +o pipefail
 
 # Prepare correct arguments for training
 case "${bitrate}" in
@@ -48,12 +50,11 @@ pushd ${HOME}/DeepSpeech/ds/
     time ./bin/run-tc-ldc93s1_new.sh 249 "${sample_rate}"
     time ./bin/run-tc-ldc93s1_new.sh 1 "${sample_rate}"
     time ./bin/run-tc-ldc93s1_tflite.sh "${sample_rate}"
-    # Testing single SDB source
-    time ./bin/run-tc-ldc93s1_new_sdb.sh 220 "${sample_rate}"
-    # Testing interleaved source (SDB+CSV combination) - run twice to test preprocessed features
-    time ./bin/run-tc-ldc93s1_new_sdb_csv.sh 109 "${sample_rate}"
-    time ./bin/run-tc-ldc93s1_new_sdb_csv.sh 1 "${sample_rate}"
 popd
+
+tar -cf - \
+    -C /tmp/ckpt/ . \
+    | ${XZ} > ${TASKCLUSTER_ARTIFACTS}/checkpoint.tar.xz
 
 cp /tmp/train/output_graph.pb ${TASKCLUSTER_ARTIFACTS}
 cp /tmp/train_tflite/output_graph.tflite ${TASKCLUSTER_ARTIFACTS}
@@ -67,7 +68,6 @@ cp /tmp/train/output_graph.pbmm ${TASKCLUSTER_ARTIFACTS}
 
 pushd ${HOME}/DeepSpeech/ds/
     time ./bin/run-tc-ldc93s1_checkpoint.sh
-    time ./bin/run-tc-ldc93s1_checkpoint_sdb.sh
 popd
 
 virtualenv_deactivate "${pyalias}" "deepspeech"

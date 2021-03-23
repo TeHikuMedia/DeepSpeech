@@ -42,10 +42,14 @@ assert_correct_inference()
   else
       echo "!! Non matching output !!"
       echo "got: <${phrase}>"
-      echo "xxd:"; echo "${phrase}" | xxd
+      if [ -x "$(command -v xxd)" ]; then
+        echo "xxd:"; echo "${phrase}" | xxd
+      fi
       echo "-------------------"
       echo "expected: <${expected}>"
-      echo "xxd:"; echo "${expected}" | xxd
+      if [ -x "$(command -v xxd)" ]; then
+        echo "xxd:"; echo "${expected}" | xxd
+      fi
       return 1
   fi;
 }
@@ -89,10 +93,14 @@ assert_working_inference()
       *)
           echo "!! Non matching output !!"
           echo "got: <${phrase}>"
-          echo "xxd:"; echo "${phrase}" | xxd
+          if [ -x "$(command -v xxd)" ]; then
+            echo "xxd:"; echo "${phrase}" | xxd
+          fi
           echo "-------------------"
           echo "expected: <${expected}>"
-          echo "xxd:"; echo "${expected}" | xxd
+          if [ -x "$(command -v xxd)" ]; then
+            echo "xxd:"; echo "${expected}" | xxd
+          fi
           return 1
       ;;
   esac
@@ -125,10 +133,14 @@ assert_shows_something()
       *)
           echo "!! Non matching output !!"
           echo "got: <${stderr}>"
-          echo "xxd:"; echo "${stderr}" | xxd
+          if [ -x "$(command -v xxd)" ]; then
+            echo "xxd:"; echo "${stderr}" | xxd
+          fi
           echo "-------------------"
           echo "expected: <${expected}>"
-          echo "xxd:"; echo "${expected}" | xxd
+          if [ -x "$(command -v xxd)" ]; then
+            echo "xxd:"; echo "${expected}" | xxd
+          fi
           return 1
       ;;
   esac
@@ -150,10 +162,14 @@ assert_not_present()
       *${not_expected}*)
           echo "!! Not expected was present !!"
           echo "got: <${stderr}>"
-          echo "xxd:"; echo "${stderr}" | xxd
+          if [ -x "$(command -v xxd)" ]; then
+            echo "xxd:"; echo "${stderr}" | xxd
+          fi
           echo "-------------------"
           echo "not_expected: <${not_expected}>"
-          echo "xxd:"; echo "${not_expected}" | xxd
+          if [ -x "$(command -v xxd)" ]; then
+            echo "xxd:"; echo "${not_expected}" | xxd
+          fi
           return 1
       ;;
 
@@ -196,45 +212,33 @@ assert_correct_multi_ldc93s1()
 assert_correct_ldc93s1_prodmodel()
 {
   if [ -z "$3" -o "$3" = "16k" ]; then
-    assert_correct_inference "$1" "she had reduce and greasy wash water all year" "$2"
+    assert_correct_inference "$1" "she had your dark suit in greasy wash water all year" "$2"
   fi;
 
   if [ "$3" = "8k" ]; then
-    assert_correct_inference "$1" "she had conduct suit in greasy wash water all year" "$2"
+    assert_correct_inference "$1" "she had to do suit in greasy wash water all year" "$2"
   fi;
 }
 
 assert_correct_ldc93s1_prodtflitemodel()
 {
   if [ -z "$3" -o "$3" = "16k" ]; then
-    assert_correct_inference "$1" "she had i do utterly was or all year" "$2"
+    assert_correct_inference "$1" "she had her dark suit in greasy wash water all year" "$2"
   fi;
 
   if [ "$3" = "8k" ]; then
-    assert_correct_inference "$1" "she had up a out and we wash or a" "$2"
+    assert_correct_inference "$1" "she had to do so in greasy wash water all year" "$2"
   fi;
 }
 
 assert_correct_ldc93s1_prodmodel_stereo_44k()
 {
-  if [ -z "$3" -o "$3" = "16k" ]; then
-    assert_correct_inference "$1" "she had reduce and greasy wash water all year" "$2"
-  fi;
-
-  if [ "$3" = "8k" ]; then
-    assert_correct_inference "$1" "she had reduce and greasy wash water all year" "$2"
-  fi;
+  assert_correct_inference "$1" "she had your dark suit in greasy wash water all year" "$2"
 }
 
 assert_correct_ldc93s1_prodtflitemodel_stereo_44k()
 {
-  if [ -z "$3" -o "$3" = "16k" ]; then
-    assert_correct_inference "$1" "she headed grey was or all year" "$2"
-  fi;
-
-  if [ "$3" = "8k" ]; then
-    assert_correct_inference "$1" "she headed grey was or all year" "$2"
-  fi;
+  assert_correct_inference "$1" "she had her dark suit in greasy wash water all year" "$2"
 }
 
 assert_correct_warning_upsampling()
@@ -364,6 +368,11 @@ run_electronjs_inference_tests()
 run_basic_inference_tests()
 {
   set +e
+  deepspeech --model "" --audio ${TASKCLUSTER_TMP_DIR}/${ldc93s1_sample_filename} 2>${TASKCLUSTER_TMP_DIR}/stderr
+  set -e
+  grep "Missing model information" ${TASKCLUSTER_TMP_DIR}/stderr
+
+  set +e
   phrase_pbmodel_nolm=$(deepspeech --model ${TASKCLUSTER_TMP_DIR}/${model_name} --audio ${TASKCLUSTER_TMP_DIR}/${ldc93s1_sample_filename} 2>${TASKCLUSTER_TMP_DIR}/stderr)
   status=$?
   set -e
@@ -458,7 +467,7 @@ run_prod_inference_tests()
   phrase_pbmodel_withlm_stereo_44k=$(deepspeech --model ${TASKCLUSTER_TMP_DIR}/${model_name_mmap} --scorer ${TASKCLUSTER_TMP_DIR}/kenlm.scorer --audio ${TASKCLUSTER_TMP_DIR}/LDC93S1_pcms16le_2_44100.wav 2>${TASKCLUSTER_TMP_DIR}/stderr)
   status=$?
   set -e
-  assert_correct_ldc93s1_prodmodel_stereo_44k "${phrase_pbmodel_withlm_stereo_44k}" "$status" "${_bitrate}"
+  assert_correct_ldc93s1_prodmodel_stereo_44k "${phrase_pbmodel_withlm_stereo_44k}" "$status"
 
   # Run down-sampling warning test only when we actually perform downsampling
   if [ "${ldc93s1_sample_filename}" != "LDC93S1_pcms16le_1_8000.wav" ]; then
@@ -489,7 +498,7 @@ run_prodtflite_inference_tests()
   phrase_pbmodel_withlm_stereo_44k=$(deepspeech --model ${TASKCLUSTER_TMP_DIR}/${model_name_mmap} --scorer ${TASKCLUSTER_TMP_DIR}/kenlm.scorer --audio ${TASKCLUSTER_TMP_DIR}/LDC93S1_pcms16le_2_44100.wav 2>${TASKCLUSTER_TMP_DIR}/stderr)
   status=$?
   set -e
-  assert_correct_ldc93s1_prodtflitemodel_stereo_44k "${phrase_pbmodel_withlm_stereo_44k}" "$status" "${_bitrate}"
+  assert_correct_ldc93s1_prodtflitemodel_stereo_44k "${phrase_pbmodel_withlm_stereo_44k}" "$status"
 
   # Run down-sampling warning test only when we actually perform downsampling
   if [ "${ldc93s1_sample_filename}" != "LDC93S1_pcms16le_1_8000.wav" ]; then
@@ -515,6 +524,24 @@ run_multi_inference_tests()
   assert_correct_multi_ldc93s1 "${multi_phrase_pbmodel_withlm}" "$status"
 }
 
+run_hotword_tests()
+{
+  set +e
+  hotwords_decode=$(${DS_BINARY_PREFIX}deepspeech --model ${TASKCLUSTER_TMP_DIR}/${model_name_mmap} --scorer ${TASKCLUSTER_TMP_DIR}/kenlm.scorer --audio ${TASKCLUSTER_TMP_DIR}/${ldc93s1_sample_filename} --hot_words "foo:0.0,bar:-0.1" 2>${TASKCLUSTER_TMP_DIR}/stderr)
+  status=$?
+  set -e
+  assert_correct_ldc93s1_lm "${hotwords_decode}" "$status"
+}
+
+run_android_hotword_tests()
+{
+  set +e
+  hotwords_decode=$(${DS_BINARY_PREFIX}deepspeech --model ${DATA_TMP_DIR}/${model_name} --scorer ${DATA_TMP_DIR}/kenlm.scorer --audio ${DATA_TMP_DIR}/${ldc93s1_sample_filename} --hot_words "foo:0.0,bar:-0.1" 2>${TASKCLUSTER_TMP_DIR}/stderr)
+  status=$?
+  set -e
+  assert_correct_ldc93s1_lm "${hotwords_decode}" "$status"
+}
+
 run_cpp_only_inference_tests()
 {
   set +e
@@ -522,4 +549,53 @@ run_cpp_only_inference_tests()
   status=$?
   set -e
   assert_correct_ldc93s1_lm "${phrase_pbmodel_withlm_intermediate_decode}" "$status"
+}
+
+run_js_streaming_inference_tests()
+{
+  set +e
+  phrase_pbmodel_withlm=$(deepspeech --model ${TASKCLUSTER_TMP_DIR}/${model_name_mmap} --scorer ${TASKCLUSTER_TMP_DIR}/kenlm.scorer --audio ${TASKCLUSTER_TMP_DIR}/${ldc93s1_sample_filename} --stream 2>${TASKCLUSTER_TMP_DIR}/stderr | tail -n 1)
+  status=$?
+  set -e
+  assert_correct_ldc93s1_lm "${phrase_pbmodel_withlm}" "$status"
+
+  set +e
+  phrase_pbmodel_withlm=$(deepspeech --model ${TASKCLUSTER_TMP_DIR}/${model_name_mmap} --scorer ${TASKCLUSTER_TMP_DIR}/kenlm.scorer --audio ${TASKCLUSTER_TMP_DIR}/${ldc93s1_sample_filename} --stream --extended 2>${TASKCLUSTER_TMP_DIR}/stderr | tail -n 1)
+  status=$?
+  set -e
+  assert_correct_ldc93s1_lm "${phrase_pbmodel_withlm}" "$status"
+}
+
+run_js_streaming_prod_inference_tests()
+{
+  local _bitrate=$1
+  set +e
+  phrase_pbmodel_withlm=$(deepspeech --model ${TASKCLUSTER_TMP_DIR}/${model_name_mmap} --scorer ${TASKCLUSTER_TMP_DIR}/kenlm.scorer --audio ${TASKCLUSTER_TMP_DIR}/${ldc93s1_sample_filename} --stream 2>${TASKCLUSTER_TMP_DIR}/stderr | tail -n 1)
+  status=$?
+  set -e
+  assert_correct_ldc93s1_prodmodel "${phrase_pbmodel_withlm}" "$status" "${_bitrate}"
+
+  local _bitrate=$1
+  set +e
+  phrase_pbmodel_withlm=$(deepspeech --model ${TASKCLUSTER_TMP_DIR}/${model_name_mmap} --scorer ${TASKCLUSTER_TMP_DIR}/kenlm.scorer --audio ${TASKCLUSTER_TMP_DIR}/${ldc93s1_sample_filename} --stream --extended 2>${TASKCLUSTER_TMP_DIR}/stderr | tail -n 1)
+  status=$?
+  set -e
+  assert_correct_ldc93s1_prodmodel "${phrase_pbmodel_withlm}" "$status" "${_bitrate}"
+}
+
+run_js_streaming_prodtflite_inference_tests()
+{
+  local _bitrate=$1
+  set +e
+  phrase_pbmodel_withlm=$(deepspeech --model ${TASKCLUSTER_TMP_DIR}/${model_name_mmap} --scorer ${TASKCLUSTER_TMP_DIR}/kenlm.scorer --audio ${TASKCLUSTER_TMP_DIR}/${ldc93s1_sample_filename} --stream 2>${TASKCLUSTER_TMP_DIR}/stderr | tail -n 1)
+  status=$?
+  set -e
+  assert_correct_ldc93s1_prodtflitemodel "${phrase_pbmodel_withlm}" "$status" "${_bitrate}"
+
+  local _bitrate=$1
+  set +e
+  phrase_pbmodel_withlm=$(deepspeech --model ${TASKCLUSTER_TMP_DIR}/${model_name_mmap} --scorer ${TASKCLUSTER_TMP_DIR}/kenlm.scorer --audio ${TASKCLUSTER_TMP_DIR}/${ldc93s1_sample_filename} --stream --extended 2>${TASKCLUSTER_TMP_DIR}/stderr | tail -n 1)
+  status=$?
+  set -e
+  assert_correct_ldc93s1_prodtflitemodel "${phrase_pbmodel_withlm}" "$status" "${_bitrate}"
 }

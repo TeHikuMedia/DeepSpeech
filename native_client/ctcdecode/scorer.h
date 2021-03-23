@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "lm/virtual_interface.hh"
@@ -25,7 +26,6 @@ const std::string END_TOKEN = "</s>";
  * Example:
  *     Scorer scorer(alpha, beta, "path_of_language_model");
  *     scorer.get_log_cond_prob({ "WORD1", "WORD2", "WORD3" });
- *     scorer.get_sent_log_prob({ "WORD1", "WORD2", "WORD3" });
  */
 class Scorer {
 public:
@@ -53,8 +53,6 @@ public:
                            bool bos = false,
                            bool eos = false);
 
-  double get_sent_log_prob(const std::vector<std::string> &words);
-
   // return the max order
   size_t get_max_order() const { return max_order_; }
 
@@ -72,18 +70,18 @@ public:
 
   // trransform the labels in index to the vector of words (word based lm) or
   // the vector of characters (character based lm)
-  std::vector<std::string> split_labels_into_scored_units(const std::vector<int> &labels);
+  std::vector<std::string> split_labels_into_scored_units(const std::vector<unsigned int> &labels);
 
   void set_alphabet(const Alphabet& alphabet);
 
   // save dictionary in file
-  void save_dictionary(const std::string &path, bool append_instead_of_overwrite=false);
+  bool save_dictionary(const std::string &path, bool append_instead_of_overwrite=false);
 
   // return weather this step represents a boundary where beam scoring should happen
   bool is_scoring_boundary(PathTrie* prefix, size_t new_label);
 
   // fill dictionary FST from a vocabulary
-  void fill_dictionary(const std::vector<std::string> &vocabulary);
+  void fill_dictionary(const std::unordered_set<std::string> &vocabulary);
 
   // load language model from given path
   int load_lm(const std::string &lm_path);

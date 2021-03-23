@@ -81,10 +81,11 @@ class Model(object):
         :param scorer_path: The path to the external scorer file.
         :type scorer_path: str
 
-        :return: Zero on success, non-zero on failure.
-        :type: int
+        :throws: RuntimeError on error
         """
-        return deepspeech.impl.EnableExternalScorer(self._impl, scorer_path)
+        status = deepspeech.impl.EnableExternalScorer(self._impl, scorer_path)
+        if status != 0:
+            raise RuntimeError("EnableExternalScorer failed with '{}' (0x{:X})".format(deepspeech.impl.ErrorCodeToErrorMessage(status),status))
 
     def disableExternalScorer(self):
         """
@@ -93,6 +94,45 @@ class Model(object):
         :return: Zero on success, non-zero on failure.
         """
         return deepspeech.impl.DisableExternalScorer(self._impl)
+
+    def addHotWord(self, word, boost):
+        """
+        Add a word and its boost for decoding.
+
+        :param word: the hot-word
+        :type word: str
+
+        :param boost: the boost
+        :type boost: float
+
+        :throws: RuntimeError on error
+        """
+        status = deepspeech.impl.AddHotWord(self._impl, word, boost)
+        if status != 0:
+            raise RuntimeError("AddHotWord failed with '{}' (0x{:X})".format(deepspeech.impl.ErrorCodeToErrorMessage(status),status))
+
+    def eraseHotWord(self, word):
+        """
+        Remove entry for word from hot-words dict.
+
+        :param word: the hot-word
+        :type word: str
+
+        :throws: RuntimeError on error
+        """
+        status = deepspeech.impl.EraseHotWord(self._impl, word)
+        if status != 0:
+            raise RuntimeError("EraseHotWord failed with '{}' (0x{:X})".format(deepspeech.impl.ErrorCodeToErrorMessage(status),status))
+
+    def clearHotWords(self):
+        """
+        Remove all entries from hot-words dict.
+
+        :throws: RuntimeError on error
+        """
+        status = deepspeech.impl.ClearHotWords(self._impl)
+        if status != 0:
+            raise RuntimeError("ClearHotWords failed with '{}' (0x{:X})".format(deepspeech.impl.ErrorCodeToErrorMessage(status),status))
 
     def setScorerAlphaBeta(self, alpha, beta):
         """

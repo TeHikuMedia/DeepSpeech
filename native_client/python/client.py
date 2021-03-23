@@ -57,7 +57,7 @@ def words_from_candidate_transcript(metadata):
 
             each_word = dict()
             each_word["word"] = word
-            each_word["start_time "] = round(word_start_time, 4)
+            each_word["start_time"] = round(word_start_time, 4)
             each_word["duration"] = round(word_duration, 4)
 
             word_list.append(each_word)
@@ -107,16 +107,22 @@ def main():
                         help='Output string from extended metadata')
     parser.add_argument('--json', required=False, action='store_true',
                         help='Output json from metadata with timestamp of each word')
+    parser.add_argument('--candidate_transcripts', type=int, default=3,
+                        help='Number of candidate transcripts to include in JSON output')
+    parser.add_argument('--hot_words', type=str,
+                        help='Hot-words and their boosts.')
     args = parser.parse_args()
 
     print('Loading model from file {}'.format(args.model), file=sys.stderr)
     model_load_start = timer()
+    # sphinx-doc: python_ref_model_start
     ds = Model(args.model)
+    # sphinx-doc: python_ref_model_stop
     model_load_end = timer() - model_load_start
     print('Loaded model in {:.3}s.'.format(model_load_end), file=sys.stderr)
 
     if args.beam_width:
-        ds.setModelBeamWidth(args.beam_width)
+        ds.setBeamWidth(args.beam_width)
 
     desired_sample_rate = ds.sampleRate()
 
@@ -130,25 +136,33 @@ def main():
         if args.lm_alpha and args.lm_beta:
             ds.setScorerAlphaBeta(args.lm_alpha, args.lm_beta)
 
+    if args.hot_words:
+        print('Adding hot-words', file=sys.stderr)
+        for word_boost in args.hot_words.split(','):
+            word,boost = word_boost.split(':')
+            ds.addHotWord(word,float(boost))
+
     fin = wave.open(args.audio, 'rb')
-    fs = fin.getframerate()
-    if fs != desired_sample_rate:
-        print('Warning: original sample rate ({}) is different than {}hz. Resampling might produce erratic speech recognition.'.format(fs, desired_sample_rate), file=sys.stderr)
-        fs, audio = convert_samplerate(args.audio, desired_sample_rate)
+    fs_orig = fin.getframerate()
+    if fs_orig != desired_sample_rate:
+        print('Warning: original sample rate ({}) is different than {}hz. Resampling might produce erratic speech recognition.'.format(fs_orig, desired_sample_rate), file=sys.stderr)
+        fs_new, audio = convert_samplerate(args.audio, desired_sample_rate)
     else:
         audio = np.frombuffer(fin.readframes(fin.getnframes()), np.int16)
 
-    audio_length = fin.getnframes() * (1/fs)
+    audio_length = fin.getnframes() * (1/fs_orig)
     fin.close()
 
     print('Running inference.', file=sys.stderr)
     inference_start = timer()
+    # sphinx-doc: python_ref_inference_start
     if args.extended:
         print(metadata_to_string(ds.sttWithMetadata(audio, 1).transcripts[0]))
     elif args.json:
-        print(metadata_json_output(ds.sttWithMetadata(audio, 3)))
+        print(metadata_json_output(ds.sttWithMetadata(audio, args.candidate_transcripts)))
     else:
         print(ds.stt(audio))
+    # sphinx-doc: python_ref_inference_stop
     inference_end = timer() - inference_start
     print('Inference took %0.3fs for %0.3fs audio file.' % (inference_end, audio_length), file=sys.stderr)
 

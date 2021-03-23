@@ -9,7 +9,7 @@ using DeepSpeechClient.Models;
 namespace DeepSpeechClient
 {
     /// <summary>
-    /// Client of the Mozilla's deepspeech implementation.
+    /// Concrete implementation of <see cref="DeepSpeechClient.Interfaces.IDeepSpeech"/>.
     /// </summary>
     public class DeepSpeech : IDeepSpeech
     {
@@ -71,6 +71,39 @@ namespace DeepSpeechClient
         public unsafe void SetModelBeamWidth(uint aBeamWidth)
         {
             var resultCode = NativeImp.DS_SetModelBeamWidth(_modelStatePP, aBeamWidth);
+            EvaluateResultCode(resultCode);
+        }
+
+        /// <summary>
+        /// Add a hot-word.
+        /// </summary>
+        /// <param name="aWord">Some word</param>
+        /// <param name="aBoost">Some boost</param>
+        /// <exception cref="ArgumentException">Thrown on failure.</exception>
+        public unsafe void AddHotWord(string aWord, float aBoost)
+        {
+            var resultCode = NativeImp.DS_AddHotWord(_modelStatePP, aWord, aBoost);
+            EvaluateResultCode(resultCode);
+        }
+
+        /// <summary>
+        /// Erase entry for a hot-word.
+        /// </summary>
+        /// <param name="aWord">Some word</param>
+        /// <exception cref="ArgumentException">Thrown on failure.</exception>
+        public unsafe void EraseHotWord(string aWord)
+        {
+            var resultCode = NativeImp.DS_EraseHotWord(_modelStatePP, aWord);
+            EvaluateResultCode(resultCode);
+        }
+
+        /// <summary>
+        /// Clear all hot-words.
+        /// </summary>
+        /// <exception cref="ArgumentException">Thrown on failure.</exception>
+        public unsafe void ClearHotWords()
+        {
+            var resultCode = NativeImp.DS_ClearHotWords(_modelStatePP);
             EvaluateResultCode(resultCode);
         }
 

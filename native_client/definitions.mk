@@ -1,7 +1,7 @@
 NC_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
 TARGET    ?= host
-TFDIR     ?= $(abspath $(NC_DIR)/../../tensorflow)
+TFDIR     ?= $(abspath $(NC_DIR)/../tensorflow)
 PREFIX    ?= /usr/local
 SO_SEARCH ?= $(TFDIR)/bazel-bin/
 
@@ -12,7 +12,13 @@ TOOL_LD   := ld
 TOOL_LDD  := ldd
 TOOL_LIBEXE :=
 
-DEEPSPEECH_BIN       := deepspeech
+OS        := $(shell uname -s)
+
+ifeq ($(findstring _NT,$(OS)),_NT)
+PLATFORM_EXE_SUFFIX := .exe
+endif
+
+DEEPSPEECH_BIN       := deepspeech$(PLATFORM_EXE_SUFFIX)
 CFLAGS_DEEPSPEECH    := -std=c++11 -o $(DEEPSPEECH_BIN)
 LINK_DEEPSPEECH      := -ldeepspeech
 LINK_PATH_DEEPSPEECH := -L${TFDIR}/bazel-bin/native_client
@@ -24,9 +30,23 @@ CXXFLAGS        :=
 LDFLAGS         :=
 SOX_CFLAGS      := `pkg-config --cflags sox`
 ifeq ($(OS),Linux)
+MAGIC_LINK_LZMA := $(shell objdump -tTC /usr/lib/`uname -m`-linux-gnu/libmagic.so | grep lzma | grep '*UND*' | wc -l)
+ifneq ($(MAGIC_LINK_LZMA),0)
+MAYBE_LINK_LZMA := -llzma
+endif # MAGIC_LINK_LZMA
+MAGIC_LINK_BZ2  := $(shell objdump -tTC /usr/lib/`uname -m`-linux-gnu/libmagic.so | grep BZ2 | grep '*UND*' | wc -l)
+ifneq ($(MAGIC_LINK_BZ2),0)
+MAYBE_LINK_BZ2  := -lbz2
+endif # MAGIC_LINK_BZ2
 SOX_CFLAGS      += -fopenmp
-SOX_LDFLAGS     := -Wl,-Bstatic `pkg-config --static --libs sox` -lgsm `pkg-config --static --libs libpng | cut -d' ' -f1` -lz -lmagic -lltdl -Wl,-Bdynamic -ldl
-else # OS == Linux
+SOX_LDFLAGS     := -Wl,-Bstatic `pkg-config --static --libs sox` -lgsm `pkg-config --static --libs libpng | cut -d' ' -f1` -lz -lmagic $(MAYBE_LINK_LZMA) $(MAYBE_LINK_BZ2) -lltdl -Wl,-Bdynamic -ldl
+else ifeq ($(OS),Darwin)
+LIBSOX_PATH             := $(shell echo `pkg-config --libs-only-L sox | sed -e 's/^-L//'`/lib`pkg-config --libs-only-l sox | sed -e 's/^-l//'`.dylib)
+LIBOPUSFILE_PATH        := $(shell echo `pkg-config --libs-only-L opusfile | sed -e 's/^-L//'`/lib`pkg-config --libs-only-l opusfile | sed -e 's/^-l//'`.dylib)
+LIBSOX_STATIC_DEPS      := $(shell echo `otool -L $(LIBSOX_PATH) | tail -n +2 | cut -d' ' -f1 | grep /opt/ | sed -E "s/\.[[:digit:]]+\.dylib/\.a/" | tr '\n' ' '`)
+LIBOPUSFILE_STATIC_DEPS := $(shell echo `otool -L $(LIBOPUSFILE_PATH) | tail -n +2 | cut -d' ' -f1 | grep /opt/ | sed -E "s/\.[[:digit:]]+\.dylib/\.a/" | tr '\n' ' '`)
+SOX_LDFLAGS             := $(LIBSOX_STATIC_DEPS) $(LIBOPUSFILE_STATIC_DEPS) -framework CoreAudio -lz
+else
 SOX_LDFLAGS     := `pkg-config --libs sox`
 endif # OS others
 PYTHON_PACKAGES := numpy${NUMPY_BUILD_VERSION}
@@ -36,8 +56,7 @@ endif
 endif
 
 ifeq ($(TARGET),host-win)
-DEEPSPEECH_BIN  := deepspeech.exe
-TOOLCHAIN := '$(VCINSTALLDIR)\bin\amd64\'
+TOOLCHAIN := '$(VCToolsInstallDir)\bin\Hostx64\x64\'
 TOOL_CC     := cl.exe
 TOOL_CXX    := cl.exe
 TOOL_LD     := link.exe
@@ -54,7 +73,7 @@ ifeq ($(TARGET),rpi3)
 TOOLCHAIN   ?= ${TFDIR}/bazel-$(shell basename "${TFDIR}")/external/LinaroArmGcc72/bin/arm-linux-gnueabihf-
 RASPBIAN    ?= $(abspath $(NC_DIR)/../multistrap-raspbian-buster)
 CFLAGS      := -march=armv7-a -mtune=cortex-a53 -mfpu=neon-fp-armv8 -mfloat-abi=hard -D_GLIBCXX_USE_CXX11_ABI=0 --sysroot $(RASPBIAN)
-CXXFLAGS    := $(CXXFLAGS)
+CXXFLAGS    := $(CFLAGS)
 LDFLAGS     := -Wl,-rpath-link,$(RASPBIAN)/lib/arm-linux-gnueabihf/ -Wl,-rpath-link,$(RASPBIAN)/usr/lib/arm-linux-gnueabihf/
 
 SOX_CFLAGS  := -I$(RASPBIAN)/usr/include
@@ -90,7 +109,19 @@ NODE_PLATFORM_TARGET := --target_arch=arm64 --target_platform=linux
 TOOLCHAIN_LDD_OPTS   := --root $(RASPBIAN)/
 endif # ($(TARGET),rpi3-armv8)
 
-OS      := $(shell uname -s)
+ifeq ($(TARGET),ios-simulator)
+CFLAGS          := -isysroot $(shell xcrun -sdk iphonesimulator13.5 -show-sdk-path)
+SOX_CFLAGS      :=
+SOX_LDFLAGS     :=
+LDFLAGS         :=
+endif
+
+ifeq ($(TARGET),ios-arm64)
+CFLAGS          := -target arm64-apple-ios -isysroot $(shell xcrun -sdk iphoneos13.5 -show-sdk-path)
+SOX_CFLAGS      :=
+SOX_LDFLAGS     :=
+LDFLAGS         :=
+endif
 
 # -Wl,--no-as-needed is required to force linker not to evict libs it thinks we
 # dont need ; will fail the build on OSX because that option does not exists
@@ -99,9 +130,13 @@ LDFLAGS_NEEDED := -Wl,--no-as-needed
 LDFLAGS_RPATH  := -Wl,-rpath,\$$ORIGIN
 endif
 ifeq ($(OS),Darwin)
-CXXFLAGS       += -stdlib=libc++ -mmacosx-version-min=10.10
-LDFLAGS_NEEDED := -stdlib=libc++ -mmacosx-version-min=10.10
+CXXFLAGS       += -stdlib=libc++
+LDFLAGS_NEEDED := -stdlib=libc++
 LDFLAGS_RPATH  := -Wl,-rpath,@executable_path
+ifeq ($(TARGET),host)
+CXXFLAGS       += -mmacosx-version-min=10.10
+LDFLAGS_NEEDED += -mmacosx-version-min=10.10
+endif
 endif
 
 CFLAGS   += $(EXTRA_CFLAGS)
@@ -170,3 +205,36 @@ define copy_missing_libs
         done; \
     fi;
 endef
+
+SWIG_DIST_URL ?= 
+ifeq ($(findstring Linux,$(OS)),Linux)
+SWIG_DIST_URL := "https://community-tc.services.mozilla.com/api/index/v1/task/project.deepspeech.swig.linux.amd64.1a4c14945012f1282c2eddc174fb7674d5295de8.0/artifacts/public/ds-swig.tar.gz"
+else ifeq ($(findstring Darwin,$(OS)),Darwin)
+SWIG_DIST_URL := "https://community-tc.services.mozilla.com/api/index/v1/task/project.deepspeech.swig.darwin.amd64.1a4c14945012f1282c2eddc174fb7674d5295de8.0/artifacts/public/ds-swig.tar.gz"
+else ifeq ($(findstring _NT,$(OS)),_NT)
+SWIG_DIST_URL := "https://community-tc.services.mozilla.com/api/index/v1/task/project.deepspeech.swig.win.amd64.1a4c14945012f1282c2eddc174fb7674d5295de8.0/artifacts/public/ds-swig.tar.gz"
+else
+$(error There is no prebuilt SWIG available for your platform. Please produce one and set SWIG_DIST_URL.)
+endif
+
+# Should point to native_client/ subdir by default
+SWIG_ROOT ?= $(abspath $(shell dirname "$(lastword $(MAKEFILE_LIST))"))/ds-swig
+ifeq ($(findstring _NT,$(OS)),_NT)
+SWIG_ROOT ?= $(shell cygpath -u "$(SWIG_ROOT)")
+endif
+SWIG_LIB ?= $(SWIG_ROOT)/share/swig/4.0.2/
+
+SWIG_BIN := swig$(PLATFORM_EXE_SUFFIX)
+DS_SWIG_BIN := ds-swig$(PLATFORM_EXE_SUFFIX)
+DS_SWIG_BIN_PATH := $(SWIG_ROOT)/bin
+
+DS_SWIG_ENV := SWIG_LIB="$(SWIG_LIB)" PATH="$(DS_SWIG_BIN_PATH):${PATH}"
+
+$(DS_SWIG_BIN_PATH)/swig:
+	mkdir -p $(SWIG_ROOT)
+	wget -O - "$(SWIG_DIST_URL)" | tar -C $(SWIG_ROOT) -zxf -
+	ln -s $(DS_SWIG_BIN) $(DS_SWIG_BIN_PATH)/$(SWIG_BIN)
+
+ds-swig: $(DS_SWIG_BIN_PATH)/swig
+	$(DS_SWIG_ENV) swig -version
+	$(DS_SWIG_ENV) swig -swiglib

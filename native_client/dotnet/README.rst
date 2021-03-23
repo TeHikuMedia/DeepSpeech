@@ -30,11 +30,10 @@ Prerequisites
 
 * Windows 10
 * `Windows 10 SDK <https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk>`_
-* `Visual Studio 2017 Community <https://visualstudio.microsoft.com/vs/community/>`_ 
-* `Git Large File Storage <https://git-lfs.github.com/>`_
+* `Visual Studio 2019 Community <https://visualstudio.microsoft.com/vs/community/>`_ 
 * `TensorFlow Windows pre-requisites <https://www.tensorflow.org/install/source_windows>`_
 
-Inside the Visual Studio Installer enable ``MS Build Tools`` and ``VC++ 2015.3 v14.00 (v140) toolset for desktop``.
+Inside the Visual Studio Installer enable ``MS Build Tools`` and ``VC++ 2019 v16.00 (v160) toolset for desktop``.
 
 If you want to enable CUDA support you need to follow the steps in `the TensorFlow docs for building on Windows with CUDA <https://www.tensorflow.org/install/gpu#windows_setup>`_.
 
@@ -43,36 +42,34 @@ We highly recommend sticking to the recommended versions of CUDA/cuDNN in order 
 Getting the code
 ----------------
 
-We need to clone ``mozilla/DeepSpeech`` and ``mozilla/tensorflow``.
+We need to clone ``mozilla/DeepSpeech``.
 
 .. code-block:: bash
 
    git clone https://github.com/mozilla/DeepSpeech
-
-.. code-block:: bash
-
-   git clone --branch r1.15 https://github.com/mozilla/tensorflow
+   git submodule sync tensorflow/
+   git submodule update --init tensorflow/
 
 Configuring the paths
 ---------------------
 
-We need to create a symbolic link, for this example let's suppose that we cloned into ``D:\cloned`` and now the structure looks like:
+There should already be a symbolic link, for this example let's suppose that we cloned into ``D:\cloned`` and now the structure looks like:
 
 .. code-block::
 
    .
    ├── D:\
    │   ├── cloned                 # Contains DeepSpeech and tensorflow side by side
-   │   │   ├── DeepSpeech         # Root of the cloned DeepSpeech
-   │   │   ├── tensorflow         # Root of the cloned Mozilla's tensorflow 
+   │   │   └── DeepSpeech         # Root of the cloned DeepSpeech
+   │   │       ├── tensorflow     # Root of the cloned Mozilla's tensorflow 
    └── ...
 
 
-Change your path accordingly to your path structure, for the structure above we are going to use the following command:
+Change your path accordingly to your path structure, for the structure above we are going to use the following command if the symbolic link does not exists:
 
 .. code-block:: bash
 
-   mklink /d "D:\cloned\tensorflow\native_client" "D:\cloned\DeepSpeech\native_client"
+   mklink /d "D:\cloned\DeepSpeech\tensorflow\native_client" "D:\cloned\DeepSpeech\native_client"
 
 Adding environment variables
 ----------------------------
@@ -82,7 +79,7 @@ After you have installed the requirements there are few environment variables th
 MSYS2 paths
 ~~~~~~~~~~~
 
-For MSYS2 we need to add ``bin`` directory, if you installed in the default route the path that we need to add should looks like ``C:\msys64\usr\bin``. Now we can run ``pacman``\ :
+For MSYS2 we need to add ``bin`` directory, if you installed in the default route the path that we need to add should looks like ``C:\msys64\usr\bin``. Now we can run ``pacman``:
 
 .. code-block:: bash
 
@@ -113,14 +110,14 @@ If you run CUDA enabled ``native_client`` we need to add the following to the ``
 
 .. code-block::
 
-   C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v10.0\bin
+   C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v10.1\bin
 
 Building the native_client
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 There's one last command to run before building, you need to run the `configure.py <https://github.com/mozilla/tensorflow/blob/master/configure.py>`_ inside ``tensorflow`` cloned directory.
 
-At this point we are ready to start building the ``native_client``\ , go to ``tensorflow`` directory that you cloned, following our examples should be ``D:\cloned\tensorflow``.  
+At this point we are ready to start building the ``native_client``, go to ``tensorflow`` sub-directory, following our examples should be ``D:\cloned\DeepSpeech\tensorflow``.  
 
 CPU
 ~~~

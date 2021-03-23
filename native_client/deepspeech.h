@@ -33,7 +33,8 @@ typedef struct TokenMetadata {
   const float start_time;
 
   /** Logit value at the time the character or grapheme was chosen*/
-  double probability; 
+  float probability; 
+
 } TokenMetadata;
 
 /**
@@ -62,30 +63,40 @@ typedef struct Metadata {
   const unsigned int num_transcripts;
 } Metadata;
 
+// sphinx-doc: error_code_listing_start
+
+#define DS_FOR_EACH_ERROR(APPLY) \
+  APPLY(DS_ERR_OK,                      0x0000, "No error.") \
+  APPLY(DS_ERR_NO_MODEL,                0x1000, "Missing model information.") \
+  APPLY(DS_ERR_INVALID_ALPHABET,        0x2000, "Invalid alphabet embedded in model. (Data corruption?)") \
+  APPLY(DS_ERR_INVALID_SHAPE,           0x2001, "Invalid model shape.") \
+  APPLY(DS_ERR_INVALID_SCORER,          0x2002, "Invalid scorer file.") \
+  APPLY(DS_ERR_MODEL_INCOMPATIBLE,      0x2003, "Incompatible model.") \
+  APPLY(DS_ERR_SCORER_NOT_ENABLED,      0x2004, "External scorer is not enabled.") \
+  APPLY(DS_ERR_SCORER_UNREADABLE,       0x2005, "Could not read scorer file.") \
+  APPLY(DS_ERR_SCORER_INVALID_LM,       0x2006, "Could not recognize language model header in scorer.") \
+  APPLY(DS_ERR_SCORER_NO_TRIE,          0x2007, "Reached end of scorer file before loading vocabulary trie.") \
+  APPLY(DS_ERR_SCORER_INVALID_TRIE,     0x2008, "Invalid magic in trie header.") \
+  APPLY(DS_ERR_SCORER_VERSION_MISMATCH, 0x2009, "Scorer file version does not match expected version.") \
+  APPLY(DS_ERR_FAIL_INIT_MMAP,          0x3000, "Failed to initialize memory mapped model.") \
+  APPLY(DS_ERR_FAIL_INIT_SESS,          0x3001, "Failed to initialize the session.") \
+  APPLY(DS_ERR_FAIL_INTERPRETER,        0x3002, "Interpreter failed.") \
+  APPLY(DS_ERR_FAIL_RUN_SESS,           0x3003, "Failed to run the session.") \
+  APPLY(DS_ERR_FAIL_CREATE_STREAM,      0x3004, "Error creating the stream.") \
+  APPLY(DS_ERR_FAIL_READ_PROTOBUF,      0x3005, "Error reading the proto buffer model file.") \
+  APPLY(DS_ERR_FAIL_CREATE_SESS,        0x3006, "Failed to create session.") \
+  APPLY(DS_ERR_FAIL_CREATE_MODEL,       0x3007, "Could not allocate model state.") \
+  APPLY(DS_ERR_FAIL_INSERT_HOTWORD,     0x3008, "Could not insert hot-word.") \
+  APPLY(DS_ERR_FAIL_CLEAR_HOTWORD,      0x3009, "Could not clear hot-words.") \
+  APPLY(DS_ERR_FAIL_ERASE_HOTWORD,      0x3010, "Could not erase hot-word.")
+
+// sphinx-doc: error_code_listing_end
+
 enum DeepSpeech_Error_Codes
 {
-    // OK
-    DS_ERR_OK                 = 0x0000,
-
-    // Missing invormations
-    DS_ERR_NO_MODEL           = 0x1000,
-
-    // Invalid parameters
-    DS_ERR_INVALID_ALPHABET   = 0x2000,
-    DS_ERR_INVALID_SHAPE      = 0x2001,
-    DS_ERR_INVALID_SCORER     = 0x2002,
-    DS_ERR_MODEL_INCOMPATIBLE = 0x2003,
-    DS_ERR_SCORER_NOT_ENABLED = 0x2004,
-
-    // Runtime failures
-    DS_ERR_FAIL_INIT_MMAP     = 0x3000,
-    DS_ERR_FAIL_INIT_SESS     = 0x3001,
-    DS_ERR_FAIL_INTERPRETER   = 0x3002,
-    DS_ERR_FAIL_RUN_SESS      = 0x3003,
-    DS_ERR_FAIL_CREATE_STREAM = 0x3004,
-    DS_ERR_FAIL_READ_PROTOBUF = 0x3005,
-    DS_ERR_FAIL_CREATE_SESS   = 0x3006,
-    DS_ERR_FAIL_CREATE_MODEL  = 0x3007,
+#define DEFINE(NAME, VALUE, DESC) NAME = VALUE,
+DS_FOR_EACH_ERROR(DEFINE)
+#undef DEFINE
 };
 
 /**
@@ -152,6 +163,42 @@ void DS_FreeModel(ModelState* ctx);
 DEEPSPEECH_EXPORT
 int DS_EnableExternalScorer(ModelState* aCtx,
                             const char* aScorerPath);
+
+/**
+ * @brief Add a hot-word and its boost.
+ *
+ * @param aCtx The ModelState pointer for the model being changed.
+ * @param word The hot-word.
+ * @param boost The boost.
+ *
+ * @return Zero on success, non-zero on failure (invalid arguments).
+ */
+DEEPSPEECH_EXPORT
+int DS_AddHotWord(ModelState* aCtx,
+                  const char* word,
+                  float boost);
+
+/**
+ * @brief Remove entry for a hot-word from the hot-words map.
+ *
+ * @param aCtx The ModelState pointer for the model being changed.
+ * @param word The hot-word.
+ *
+ * @return Zero on success, non-zero on failure (invalid arguments).
+ */
+DEEPSPEECH_EXPORT
+int DS_EraseHotWord(ModelState* aCtx,
+                    const char* word);
+
+/**
+ * @brief Removes all elements from the hot-words map.
+ *
+ * @param aCtx The ModelState pointer for the model being changed.
+ *
+ * @return Zero on success, non-zero on failure (invalid arguments).
+ */
+DEEPSPEECH_EXPORT
+int DS_ClearHotWords(ModelState* aCtx);
 
 /**
  * @brief Disable decoding using an external scorer.

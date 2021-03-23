@@ -1,5 +1,14 @@
-C
-=
+.. _c-usage:
+
+C API
+=====
+
+.. toctree::
+   :maxdepth: 2
+
+   Structs
+
+See also the list of error codes including descriptions for each error in :ref:`error-codes`.
 
 .. doxygenfunction:: DS_CreateModel
    :project: deepspeech-c
@@ -11,6 +20,15 @@ C
    :project: deepspeech-c
 
 .. doxygenfunction:: DS_DisableExternalScorer
+   :project: deepspeech-c
+
+.. doxygenfunction:: DS_AddHotWord
+   :project: deepspeech-c
+
+.. doxygenfunction:: DS_EraseHotWord
+   :project: deepspeech-c
+
+.. doxygenfunction:: DS_ClearHotWords
    :project: deepspeech-c
 
 .. doxygenfunction:: DS_SetScorerAlphaBeta

@@ -112,9 +112,14 @@ android_setup_emulator()
 
   local _flavor=$1
   local _api_level=${2:-android-25}
+  local _api_kind=${3:-google_apis}
+
+  if [ -z "${_api_kind}" ]; then
+    _api_kind="google_apis"
+  fi
 
   export PATH=${ANDROID_SDK_HOME}/tools/bin/:${ANDROID_SDK_HOME}/platform-tools/:$PATH
-  export DS_BINARY_PREFIX="adb shell LD_LIBRARY_PATH=${ANDROID_TMP_DIR}/ds/ ${ANDROID_TMP_DIR}/ds/"
+  export DS_BINARY_PREFIX="adb shell TMP=${ANDROID_TMP_DIR}/ LD_LIBRARY_PATH=${ANDROID_TMP_DIR}/ds/ ${ANDROID_TMP_DIR}/ds/"
 
   # Pipe yes in case of license being shown
   yes | sdkmanager --update
@@ -123,11 +128,11 @@ android_setup_emulator()
   android_install_sdk_platform "${_api_level}"
 
   # Same, yes in case of license
-  yes | sdkmanager --install "system-images;${_api_level};google_apis;${_flavor}"
+  yes | sdkmanager --install "system-images;${_api_level};${_api_kind};${_flavor}"
 
   android_sdk_accept_licenses
 
-  avdmanager create avd --name "${_flavor}-ds-pixel-${_api_level}" --device 17 --package "system-images;${_api_level};google_apis;${_flavor}"
+  avdmanager create avd --name "${_flavor}-ds-pixel-${_api_level}" --device 17 --package "system-images;${_api_level};${_api_kind};${_flavor}"
 }
 
 android_start_emulator()
@@ -136,7 +141,7 @@ android_start_emulator()
   local _api_level=${2:-android-25}
 
   export PATH=${ANDROID_SDK_HOME}/tools/bin/:${ANDROID_SDK_HOME}/platform-tools/:$PATH
-  export DS_BINARY_PREFIX="adb shell LD_LIBRARY_PATH=${ANDROID_TMP_DIR}/ds/ ${ANDROID_TMP_DIR}/ds/"
+  export DS_BINARY_PREFIX="adb shell TMP=${ANDROID_TMP_DIR}/ LD_LIBRARY_PATH=${ANDROID_TMP_DIR}/ds/ ${ANDROID_TMP_DIR}/ds/"
 
   # minutes (2 minutes by default)
   export ADB_INSTALL_TIMEOUT=8
@@ -201,6 +206,10 @@ android_setup_ndk_data()
     ${TASKCLUSTER_TMP_DIR}/${model_name} \
     ${TASKCLUSTER_TMP_DIR}/${ldc93s1_sample_filename} \
     ${ANDROID_TMP_DIR}/ds/
+
+  if [ -f "${TASKCLUSTER_TMP_DIR}/kenlm.scorer" ]; then
+    adb push ${TASKCLUSTER_TMP_DIR}/kenlm.scorer ${ANDROID_TMP_DIR}/ds/
+  fi
 }
 
 android_setup_apk_data()

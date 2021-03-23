@@ -13,8 +13,8 @@ build:
     - "index.project.deepspeech.deepspeech.native_client.android-apk.${event.head.sha}"
   system_setup:
     >
-      ${java.packages_trusty.apt}
-  tensorflow: "https://community-tc.services.mozilla.com/api/index/v1/task/project.deepspeech.tensorflow.pip.r1.15.ceb46aae5836a0f648a2c3da5942af2b7d1b98bf.android-armv7/artifacts/public/home.tar.xz"
+      ${java.packages_xenial.apt}
+  tensorflow: ${system.tensorflow.android_armv7.url}
   gradle_cache:
     url: ${system.gradle_cache.url}
     namespace: ${system.gradle_cache.namespace}
@@ -25,6 +25,7 @@ build:
     build: "taskcluster/android-apk-build.sh"
     package: "taskcluster/android-apk-package.sh"
   nc_asset_name: "native_client.apk.cpu.android.tar.xz"
+  workerType: "${docker.dsBuild}"
   metadata:
     name: "DeepSpeech Android APK (ARM64+ARMv7+x86_64)"
     description: "Building DeepSpeech for Android APK (ARM64+ARMv7+x86_64), optimized version"
