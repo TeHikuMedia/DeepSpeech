@@ -147,8 +147,6 @@ tf_cc_shared_object(
         "//tensorflow:macos": [],
         "//tensorflow:ios": ["-fembed-bitcode"],
         "//tensorflow:linux_x86_64": LINUX_LINKOPTS,
-        "//native_client:rpi3": LINUX_LINKOPTS,
-        "//native_client:rpi3-armv8": LINUX_LINKOPTS,
         "//tensorflow:windows": [],
         "//conditions:default": [],
     }) + tflite_linkopts(),
@@ -174,7 +172,6 @@ tf_cc_shared_object(
             "//tensorflow/core/kernels:gather_nd_op",  # GatherNd
             "//tensorflow/core/kernels:identity_op",  # Identity
             "//tensorflow/core/kernels:immutable_constant_op",  # ImmutableConst (used in memmapped models)
-            "//tensorflow/core/kernels:deepspeech_cwise_ops",  # Less, Minimum, Mul
             "//tensorflow/core/kernels:matmul_op",  # MatMul
             "//tensorflow/core/kernels:reduction_ops",  # Max
             "//tensorflow/core/kernels:mfcc_op",  # Mfcc
