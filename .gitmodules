@@ -8,3 +8,9 @@
 [submodule "kenlm"]
 	path = kenlm
 	url = https://github.com/kpu/kenlm
+[submodule "xtensor"]
+	path = native_client/xtensor
+        url = https://github.com/xtensor-stack/xtensor.git
+[submodule "xtl"] 
+        path = native_client/xtl
+	url = https://github.com/xtensor-stack/xtl.git

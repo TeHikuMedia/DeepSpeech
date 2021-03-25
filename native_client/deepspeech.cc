@@ -23,6 +23,10 @@
 
 #include "ctcdecode/ctc_beam_search_decoder.h"
 
+#include "xtensor/xarray.hpp"
+#include "xtensor/xadapt.hpp"
+#include "xtensor/xview.hpp"
+
 #ifdef __ANDROID__
 #include <android/log.h>
 #define  LOG_TAG    "libdeepspeech"
@@ -34,6 +38,8 @@
 #endif // __ANDROID__
 
 using std::vector;
+
+using namespace xt;
 
 /* This is the implementation of the streaming inference API.
 
@@ -88,6 +94,11 @@ struct StreamingState {
   void pushMfccBuffer(const vector<float>& buf);
   void addZeroMfccWindow();
   void processBatch(const vector<float>& buf, unsigned int n_steps);
+  
+  /* Softmax hacks*/
+  xarray<double> reshape(vector<float> rawlogits, const int num_classes, const int n_frames);
+  xarray<double> softmax(xarray<double> rawlogits);
+  vector<double> flatten(xarray<double> logits);
 };
 
 StreamingState::StreamingState()
@@ -239,6 +250,24 @@ StreamingState::processMfccWindow(const vector<float>& buf)
   }
 }
 
+vector<double> StreamingState::flatten(xarray<double> logits){
+  int num_logits = logits.shape()[0] * logits.shape()[1];
+  xarray<double> xflat = logits.reshape({1, num_logits});
+  vector<double> vflat(xflat.begin(), xflat.end());
+  return vflat;
+}
+
+xarray<double> StreamingState::softmax(xarray<double> rawlogits){
+    xarray<double> denom = view(sum(exp(rawlogits), 1),
+                                all(),
+                                newaxis());
+    return  exp(rawlogits) / denom;
+}
+
+xarray<double> StreamingState::reshape(vector<float> rawlogits, const int num_classes, const int n_frames){
+  return adapt(rawlogits, {n_frames, num_classes});
+}
+
 void
 StreamingState::processBatch(const vector<float>& buf, unsigned int n_steps)
 {
@@ -254,8 +283,15 @@ StreamingState::processBatch(const vector<float>& buf, unsigned int n_steps)
   const size_t num_classes = model_->alphabet_.GetSize() + 1; // +1 for blank
   const int n_frames = logits.size() / (ModelState::BATCH_SIZE * num_classes);
 
-  // Convert logits to double
-  vector<double> inputs(logits.begin(), logits.end());
+  // 1. Reshape rolled out logits
+  xarray<double> reshapedRawLogits = reshape(logits, num_classes, n_frames);
+
+  // 2. Perform softmax
+  xarray<double> softmaxLogits = softmax(reshapedRawLogits);
+
+  // 3. Rollout softmax logits
+  vector<double> inputs = flatten(softmaxLogits);
+
 
   decoder_state_.next(inputs.data(),
                       n_frames,

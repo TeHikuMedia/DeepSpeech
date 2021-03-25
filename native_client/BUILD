@@ -198,6 +198,7 @@ tf_cc_shared_object(
     }) + if_cuda([
         "//tensorflow/core:core",
     ]) + [":decoder"],
+    includes = ['xtensor/include', 'xtl/include'],
 )
 
 genrule(
