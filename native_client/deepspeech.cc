@@ -252,7 +252,7 @@ StreamingState::processMfccWindow(const vector<float>& buf)
 
 vector<double> StreamingState::flatten(xarray<double> logits){
   int num_logits = logits.shape()[0] * logits.shape()[1];
-  xarray<double> xflat = logits.reshape({1, (unsigned)num_logits});
+  xarray<double> xflat = logits.reshape({1, num_logits});
   vector<double> vflat(xflat.begin(), xflat.end());
   return vflat;
 }
@@ -265,7 +265,7 @@ xarray<double> StreamingState::softmax(xarray<double> rawlogits){
 }
 
 xarray<double> StreamingState::reshape(vector<float> rawlogits, const int num_classes, const int n_frames){
-  return adapt(rawlogits, {(unsigned)n_frames, (unsigned)num_classes});
+  return adapt(rawlogits, {n_frames, num_classes});
 }
 
 void
