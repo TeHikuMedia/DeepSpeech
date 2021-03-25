@@ -24,17 +24,8 @@
 #include "ctcdecode/ctc_beam_search_decoder.h"
 
 #include "xtensor/xarray.hpp"
-#include "xtensor/xfixed.hpp"
-#include "xtensor/xtensor.hpp"
 #include "xtensor/xadapt.hpp"
-#include "xtensor/xsort.hpp"
 #include "xtensor/xview.hpp"
-#include "xtensor/xbuilder.hpp"
-#include "xtensor/xslice.hpp"
-#include "xtensor/xaxis_slice_iterator.hpp"
-#include "xtensor/xio.hpp"
-#include "xtensor/xnpy.hpp"
-
 
 #ifdef __ANDROID__
 #include <android/log.h>
@@ -260,11 +251,8 @@ StreamingState::processMfccWindow(const vector<float>& buf)
 }
 
 vector<double> StreamingState::flatten(xarray<double> logits){
-  auto sshape = logits.shape();
-  int num_logits = sshape[0] * sshape[1];
-
-  xarray<size_t> fshape{1, (unsigned)num_logits};
-  xarray<double> xflat = logits.reshape(fshape);
+  int num_logits = logits.shape()[0] * logits.shape()[1];
+  xarray<double> xflat = logits.reshape({1, (unsigned)num_logits});
   vector<double> vflat(xflat.begin(), xflat.end());
   return vflat;
 }
@@ -276,12 +264,8 @@ xarray<double> StreamingState::softmax(xarray<double> rawlogits){
     return  exp(rawlogits) / denom;
 }
 
-
 xarray<double> StreamingState::reshape(vector<float> rawlogits, const int num_classes, const int n_frames){
-  
-  vector<size_t> shape = {(unsigned)n_frames, (unsigned)num_classes};
-  xarray<double> reshapedRawLogits = adapt(rawlogits, shape);
-  return reshapedRawLogits;
+  return adapt(rawlogits, {(unsigned)n_frames, (unsigned)num_classes});
 }
 
 void
