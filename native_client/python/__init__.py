@@ -191,7 +191,6 @@ class Model(object):
             raise RuntimeError("CreateStream failed with '{}' (0x{:X})".format(deepspeech.impl.ErrorCodeToErrorMessage(status),status))
         return Stream(ctx)
 
-
 class Stream(object):
     """
     Class wrapping a DeepSpeech stream. The constructor cannot be called directly.
@@ -295,6 +294,11 @@ class Stream(object):
             raise RuntimeError("Stream object is not valid. Trying to free an already finished stream?")
         deepspeech.impl.FreeStream(self._impl)
         self._impl = None
+
+    def sentencefit(self, audio_buffer, target):
+        self.feedAudioContent(audio_buffer)
+        return deepspeech.impl.SF_getAllMetaData(self._impl, target)
+
 
 
 # This is only for documentation purpose

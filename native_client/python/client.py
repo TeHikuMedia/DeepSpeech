@@ -10,7 +10,7 @@ import sys
 import wave
 import json
 
-from deepspeech import Model, version
+from deepspeech import Model
 from timeit import default_timer as timer
 
 try:
@@ -78,13 +78,13 @@ def metadata_json_output(metadata):
 
 
 
-class VersionAction(argparse.Action):
-    def __init__(self, *args, **kwargs):
-        super(VersionAction, self).__init__(nargs=0, *args, **kwargs)
+# class VersionAction(argparse.Action):
+#     def __init__(self, *args, **kwargs):
+#         super(VersionAction, self).__init__(nargs=0, *args, **kwargs)
 
-    def __call__(self, *args, **kwargs):
-        print('DeepSpeech ', version())
-        exit(0)
+#     def __call__(self, *args, **kwargs):
+#         print('DeepSpeech ', version())
+#         exit(0)
 
 
 def main():
@@ -101,8 +101,8 @@ def main():
                         help='Language model weight (lm_alpha). If not specified, use default from the scorer package.')
     parser.add_argument('--lm_beta', type=float,
                         help='Word insertion bonus (lm_beta). If not specified, use default from the scorer package.')
-    parser.add_argument('--version', action=VersionAction,
-                        help='Print version and exits')
+    # parser.add_argument('--version', action=VersionAction,
+    #                     help='Print version and exits')
     parser.add_argument('--extended', required=False, action='store_true',
                         help='Output string from extended metadata')
     parser.add_argument('--json', required=False, action='store_true',
@@ -162,6 +162,8 @@ def main():
         print(metadata_json_output(ds.sttWithMetadata(audio, args.candidate_transcripts)))
     else:
         print(ds.stt(audio))
+        # print(ds.createStream().sentencefit(audio, "e mate ana a i te hiakai"))
+    
     # sphinx-doc: python_ref_inference_stop
     inference_end = timer() - inference_start
     print('Inference took %0.3fs for %0.3fs audio file.' % (inference_end, audio_length), file=sys.stderr)
