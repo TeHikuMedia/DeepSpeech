@@ -47,6 +47,9 @@ typedef struct StreamingState StreamingState;
 
     /** Position of the token in seconds */
     const float start_time;
+
+    /** Logit value at the time the character or grapheme was chosen*/
+    float probability; 
   } TokenMetadata;
 
   /**
