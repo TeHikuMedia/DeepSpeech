@@ -38,6 +38,11 @@ import_array();
   %append_output(SWIG_NewPointerObj(%as_voidptr($1), $1_descriptor, SWIG_POINTER_OWN));
 }
 
+%typemap(out) SentFitMeta* {
+  // owned, extended destructor needs to be called by SWIG
+  %append_output(SWIG_NewPointerObj(%as_voidptr($1), $1_descriptor, SWIG_POINTER_OWN));
+}
+
 %fragment("parent_reference_init", "init") {
   // Thread-safe initialization - initialize during Python module initialization
   parent_reference();
@@ -74,10 +79,38 @@ static PyObject *parent_reference() {
   }
 %}
 
+%typemap(out, fragment="parent_reference_function") SentFitToken* %{
+  $result = PyList_New(arg1->num_tokens);
+  for (int i = 0; i < arg1->num_tokens; ++i) {
+    PyObject* o = SWIG_NewPointerObj(SWIG_as_voidptr(&arg1->tokens[i]), SWIGTYPE_p_SentFitToken, 0);
+    // Add a reference to SentFitToken in the returned elements to avoid premature
+    // garbage collection
+    PyObject_SetAttr(o, parent_reference(), $self);
+    PyList_SetItem($result, i, o);
+  }
+%}
+
+// SentenceFit hacks
+%extend struct SentFitToken {
+%pythoncode %{
+  def __repr__(self):
+    return 'SF Tokens(text=\'{}\', confidence={}, time_steps={})'.format(self.letter, self.confidence, self.timestep)
+%}
+}
+
+%extend struct SentFitMeta {
+%pythoncode %{
+  def __repr__(self):
+    tokens_repr = ',\n'.join(repr(i) for i in self.tokens)
+    tokens_repr = '\n'.join('  ' + l for l in tokens_repr.split('\n'))
+    return 'SentenceFit tokens=[\n{}\n])'.format(tokens_repr)
+%}
+}
+
 %extend struct TokenMetadata {
 %pythoncode %{
   def __repr__(self):
-    return 'TokenMetadata(text=\'{}\', timestep={}, start_time={})'.format(self.text, self.timestep, self.start_time)
+    return 'TokenMetadata(text=\'{}\', timestep={}, start_time={}, confidence={})'.format(self.text, self.timestep, self.start_time, self.probability)
 %}
 }
 
@@ -101,11 +134,18 @@ static PyObject *parent_reference() {
 
 %ignore Metadata::num_transcripts;
 %ignore CandidateTranscript::num_tokens;
+%ignore SentFitMeta::num_tokens;
 
 %extend struct Metadata {
   ~Metadata() {
     DS_FreeMetadata($self);
   }
+}
+
+%extend struct SentFitMeta {
+  ~SentFitMeta() {
+    SF_FreeSentFitMeta($self);
+}
 }
 
 %nodefaultctor Metadata;
@@ -115,6 +155,12 @@ static PyObject *parent_reference() {
 %nodefaultctor TokenMetadata;
 %nodefaultdtor TokenMetadata;
 
+// Sentencefit hacks
+%nodefaultctor SentFitToken;
+%nodefaultdtor SentFitToken;
+%nodefaultctor SentFitMeta;
+%nodefaultdtor SentFitMeta;
+
 %typemap(newfree) char* "DS_FreeString($1);";
 
 %newobject DS_SpeechToText;
@@ -122,6 +168,9 @@ static PyObject *parent_reference() {
 %newobject DS_FinishStream;
 %newobject DS_Version;
 %newobject DS_ErrorCodeToErrorMessage;
+
+// Sentencefit hacks
+%newobject SF_getAllMetaData;
 
 %rename ("%(strip:[DS_])s") "";
 

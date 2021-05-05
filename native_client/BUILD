@@ -1,8 +1,9 @@
 # Description: Deepspeech native client library.
 
-load("@org_tensorflow//tensorflow:tensorflow.bzl", "tf_cc_shared_object")
+load("@org_tensorflow//tensorflow:tensorflow.bzl", "tf_cc_shared_object", "tf_copts", "lrt_if_needed")
 load("@local_config_cuda//cuda:build_defs.bzl", "if_cuda")
 load("@com_github_nelhage_rules_boost//:boost/boost.bzl", "boost_deps")
+load("@build_bazel_rules_apple//apple:ios.bzl", "ios_static_framework")
 
 load(
     "@org_tensorflow//tensorflow/lite:build_def.bzl",
@@ -110,9 +111,18 @@ cc_library(
     ],
 )
 
-tf_cc_shared_object(
-    name = "libdeepspeech.so",
+cc_library(
+    name = "sentencefit_bundle",
+    srcs = ['sentencefit.cc'],
+    hdrs = ['SentenceFit.h'],
+    includes = ['xtensor/include', 'xtl/include'],
+    visibility = ['//visibility:public'],
+)
+
+cc_library(
+    name = "deepspeech_bundle",
     srcs = [
+        "SF_GLOBAL_vars.h",
         "deepspeech.cc",
         "deepspeech.h",
         "deepspeech_errors.cc",
@@ -130,7 +140,7 @@ tf_cc_shared_object(
             "tfmodelstate.cc",
         ],
     }),
-    copts = select({
+    copts = tf_copts() + select({
         # -fvisibility=hidden is not required on Windows, MSCV hides all declarations by default
         "//tensorflow:windows": ["/w"],
         # -Wno-sign-compare to silent a lot of warnings from tensorflow itself,
@@ -143,10 +153,12 @@ tf_cc_shared_object(
         "//native_client:tflite": ["-DUSE_TFLITE"],
         "//conditions:default": ["-UUSE_TFLITE"],
     }) + tflite_copts(),
-    linkopts = select({
+    linkopts = lrt_if_needed() + select({
         "//tensorflow:macos": [],
         "//tensorflow:ios": ["-fembed-bitcode"],
         "//tensorflow:linux_x86_64": LINUX_LINKOPTS,
+        "//native_client:rpi3": LINUX_LINKOPTS,
+        "//native_client:rpi3-armv8": LINUX_LINKOPTS,
         "//tensorflow:windows": [],
         "//conditions:default": [],
     }) + tflite_linkopts(),
@@ -172,6 +184,7 @@ tf_cc_shared_object(
             "//tensorflow/core/kernels:gather_nd_op",  # GatherNd
             "//tensorflow/core/kernels:identity_op",  # Identity
             "//tensorflow/core/kernels:immutable_constant_op",  # ImmutableConst (used in memmapped models)
+            "//tensorflow/core/kernels:deepspeech_cwise_ops",  # Less, Minimum, Mul
             "//tensorflow/core/kernels:matmul_op",  # MatMul
             "//tensorflow/core/kernels:reduction_ops",  # Max
             "//tensorflow/core/kernels:mfcc_op",  # Mfcc
@@ -197,7 +210,20 @@ tf_cc_shared_object(
         ],
     }) + if_cuda([
         "//tensorflow/core:core",
-    ]) + [":decoder"],
+    ]) + [":decoder", ":sentencefit_bundle"],
+)
+
+tf_cc_shared_object(
+    name = "libdeepspeech.so",
+    deps = [":deepspeech_bundle"],
+)
+
+ios_static_framework(
+    name = "deepspeech_ios",
+    deps = [":deepspeech_bundle"],
+    families = ["iphone", "ipad"],
+    minimum_os_version = "9.0",
+    linkopts = ["-lstdc++"],
 )
 
 genrule(
