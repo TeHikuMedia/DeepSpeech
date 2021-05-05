@@ -42,8 +42,8 @@ bazel build --verbose_failures --config=$build_config  --workspace_status_comman
 
 # 6. Remove previous framework/binary
 echo "Remove previous compiled ios framework ..."
-rm -rf ~/dev/ios-tutu/ios-asr/deepspeech_ios.framework
+rm -rf ~/dev/ios-tutu/IOS-Asr/deepspeech_ios.framework
 
 # 7. Add latest build to deepspeech project
 echo "Adding latest build to xcode project ..."
-cp -r bazel-bin/native_client/deepspeech_ios_archive-root/deepspeech_ios.framework ../../ios-asr
+cp -r bazel-bin/native_client/deepspeech_ios_archive-root/deepspeech_ios.framework ~/dev/ios-tutu/IOS-Asr/deepspeech_ios.framework
