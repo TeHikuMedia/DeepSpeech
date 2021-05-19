@@ -403,8 +403,8 @@ SentFitMeta *StreamingState::sentenceFitBeam(const char *target)
 
     SentFitToken token{
         .confidence = conf[i],    
-        .letter = letter,
         .frames = lframes[i],
+        .letter = letter,
         .timestep = lframes[i] * ((float)model_->audio_win_step_ / model_->sample_rate_)
     };
     memcpy(&tokens[i], &token, sizeof(SentFitToken));
