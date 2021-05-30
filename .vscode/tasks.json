@@ -1,0 +1,40 @@
+
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "cppbuild",
+			"label": "C/C++: clang++ build active file",
+			"command": "/usr/bin/clang++",
+			"args": [
+				"-std=c++17",
+				"-stdlib=libc++",
+				"-g",
+				"${file}",
+				"-o",
+				"${fileDirname}/bin/${fileBasenameNoExtension}",
+				"-I",
+				"${workspaceFolder}/native_client", 
+				"`pkg-config --cflags sox`",
+				"-mmacosx-version-min=10.10",
+				"-Wl",
+				"-rpath",
+				"@executable_path -L/Users/kiarie/dev/DeepSpeech/tensorflow/bazel-bin/native_client",
+				"-ldeepspeech /usr/local/opt/sox/lib/libsox.a /usr/local/opt/libpng/lib/libpng16.a /usr/local/opt/flac/lib/libFLAC.a /usr/local/opt/mad/lib/libmad.a /usr/local/opt/lame/lib/libmp3lame.a /usr/local/opt/opusfile/lib/libopusfile.a /usr/local/opt/libvorbis/lib/libvorbisenc.a /usr/local/opt/libvorbis/lib/libvorbisfile.a /usr/local/opt/libvorbis/lib/libvorbis.a /usr/local/opt/libogg/lib/libogg.a /usr/local/opt/libsndfile/lib/libsndfile.a /usr/local/opt/opusfile/lib/libopusfile.a /usr/local/opt/libogg/lib/libogg.a /usr/local/opt/opus/lib/libopus.a",
+				"-framework",
+				"CoreAudio",
+			],
+			"options": {
+				"cwd": "${workspaceFolder}/native_client",
+			},
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"detail": "compiler: /usr/bin/clang++"
+		},
+	]
+}
