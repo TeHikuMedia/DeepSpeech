@@ -94,7 +94,7 @@ static PyObject *parent_reference() {
 %extend struct SentFitToken {
 %pythoncode %{
   def __repr__(self):
-    return 'SF Tokens(text=\'{}\', time_steps={}, confidence={})'.format(self.letter, self.timestep, self.confidence)
+    return 'SF Tokens(letter=\'{}\', timestep={}, confidence={})'.format(self.letter, self.timestep, self.confidence)
 %}
 }
 
