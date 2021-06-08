@@ -77,16 +77,6 @@ def metadata_json_output(metadata):
     return json.dumps(json_result, indent=2)
 
 
-
-# class VersionAction(argparse.Action):
-#     def __init__(self, *args, **kwargs):
-#         super(VersionAction, self).__init__(nargs=0, *args, **kwargs)
-
-#     def __call__(self, *args, **kwargs):
-#         print('DeepSpeech ', version())
-#         exit(0)
-
-
 def main():
     parser = argparse.ArgumentParser(description='Running DeepSpeech inference.')
     parser.add_argument('--model', required=True,
@@ -160,10 +150,10 @@ def main():
         print(metadata_to_string(ds.sttWithMetadata(audio, 1).transcripts[0]))
     elif args.json:
         print(metadata_json_output(ds.sttWithMetadata(audio, args.candidate_transcripts)))
-    else:
-        print(ds.stt(audio))
-        print(ds.createStream().sentencefit(audio, "e mate ana a i te hiakai"))
-        print(ds.sttWithMetadata(audio, 1))
+    else: 
+        print(ds.stt(audio))        
+        test = ds.createStream().sentencefit(audio, "ka arohia katoatia te hāhi me ōna whakapono e te hapū o ōtākou")
+        [print(f"letter: {t.letter}, confidence: {t.confidence}, timestep: {t.timestep}") for t in test.tokens]
         
     # sphinx-doc: python_ref_inference_stop
     inference_end = timer() - inference_start
