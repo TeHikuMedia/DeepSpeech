@@ -472,7 +472,8 @@ def train():
 
     # Building the graph
     learning_rate_var = tfv1.get_variable('learning_rate', initializer=FLAGS.learning_rate, trainable=False)
-    reduce_learning_rate_op = learning_rate_var.assign(tf.multiply(learning_rate_var, FLAGS.plateau_reduction))
+    reduce_learning_rate_op = 
+    .assign(tf.multiply(learning_rate_var, FLAGS.plateau_reduction))
     optimizer = create_optimizer(learning_rate_var)
 
     # Enable mixed precision training
@@ -695,7 +696,7 @@ def test():
         save_samples_json(samples, FLAGS.test_output_file)
 
 
-def create_inference_graph(batch_size=1, n_steps=16, tflite=False):
+def create_inference_graph(batch_size=1, n_steps=16, tflite=False, representations=False):
     batch_size = batch_size if batch_size > 0 else None
 
     # Create feature computation graph
@@ -764,6 +765,10 @@ def create_inference_graph(batch_size=1, n_steps=16, tflite=False):
     new_state_c, new_state_h = layers['rnn_output_state']
     new_state_c = tf.identity(new_state_c, name='new_state_c')
     new_state_h = tf.identity(new_state_h, name='new_state_h')
+    representation = tf.reshape(layers['layers_5'], [-1, batch_size, Config.n_hidden_5], name='representation')
+    
+    if tflite:
+        representation = tf.squeeze(representation, [1])
 
     inputs = {
         'input': input_tensor,
@@ -775,12 +780,18 @@ def create_inference_graph(batch_size=1, n_steps=16, tflite=False):
     if not FLAGS.export_tflite:
         inputs['input_lengths'] = seq_length
 
+    if representations:
+        del inputs['input']
+
     outputs = {
         'outputs': logits,
         'new_state_c': new_state_c,
         'new_state_h': new_state_h,
         'mfccs': mfccs,
     }
+
+    if representations:
+        inputs['representation'] = representation
 
     return inputs, outputs, layers
 
@@ -789,13 +800,15 @@ def file_relative_read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 
-def export():
+def export(representations=False):
     r'''
     Restores the trained variables into a simpler graph that will be exported for serving.
+
+    We have added an optional flag for outputting representations/probs (as part of pronunciation work).
     '''
     log_info('Exporting the model...')
 
-    inputs, outputs, _ = create_inference_graph(batch_size=FLAGS.export_batch_size, n_steps=FLAGS.n_steps, tflite=FLAGS.export_tflite)
+    inputs, outputs, _ = create_inference_graph(batch_size=FLAGS.export_batch_size, n_steps=FLAGS.n_steps, tflite=FLAGS.export_tflite, representations=representations)
 
     graph_version = int(file_relative_read('GRAPH_VERSION').strip())
     assert graph_version > 0
