@@ -472,8 +472,7 @@ def train():
 
     # Building the graph
     learning_rate_var = tfv1.get_variable('learning_rate', initializer=FLAGS.learning_rate, trainable=False)
-    reduce_learning_rate_op = 
-    .assign(tf.multiply(learning_rate_var, FLAGS.plateau_reduction))
+    reduce_learning_rate_op = learning_rate_var.assign(tf.multiply(learning_rate_var, FLAGS.plateau_reduction))
     optimizer = create_optimizer(learning_rate_var)
 
     # Enable mixed precision training
