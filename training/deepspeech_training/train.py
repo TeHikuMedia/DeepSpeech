@@ -764,7 +764,7 @@ def create_inference_graph(batch_size=1, n_steps=16, tflite=False, representatio
     new_state_c, new_state_h = layers['rnn_output_state']
     new_state_c = tf.identity(new_state_c, name='new_state_c')
     new_state_h = tf.identity(new_state_h, name='new_state_h')
-    representation = tf.reshape(layers['layers_5'], [-1, batch_size, Config.n_hidden_5], name='representation')
+    representation = tf.reshape(layers['layer_5'], [-1, batch_size, Config.n_hidden_5], name='representation')
     
     if tflite:
         representation = tf.squeeze(representation, [1])
@@ -779,9 +779,6 @@ def create_inference_graph(batch_size=1, n_steps=16, tflite=False, representatio
     if not FLAGS.export_tflite:
         inputs['input_lengths'] = seq_length
 
-    if representations:
-        del inputs['input']
-
     outputs = {
         'outputs': logits,
         'new_state_c': new_state_c,
@@ -790,7 +787,7 @@ def create_inference_graph(batch_size=1, n_steps=16, tflite=False, representatio
     }
 
     if representations:
-        inputs['representation'] = representation
+        outputs['representation'] = representation
 
     return inputs, outputs, layers
 
@@ -828,6 +825,8 @@ def export(representations=False):
     output_names_tensors = [tensor.op.name for tensor in outputs.values() if isinstance(tensor, tf.Tensor)]
     output_names_ops = [op.name for op in outputs.values() if isinstance(op, tf.Operation)]
     output_names = output_names_tensors + output_names_ops
+
+    # import pdb; pdb.set_trace()
 
     with tf.Session() as session:
         # Restore variables from checkpoint
