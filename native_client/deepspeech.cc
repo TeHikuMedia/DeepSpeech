@@ -371,8 +371,9 @@ SentFitMeta *StreamingState::sentenceFitBeam(const char *target)
     string label = model_->alphabet_.DecodeSingle((unsigned int)i);
     if (label == " ")
     {
-      model_alphabet.push_back(" ");
+      label = "_";
     }
+    model_alphabet.push_back(label);
   }
   // Add closing blank char
   model_alphabet.push_back(" ");
