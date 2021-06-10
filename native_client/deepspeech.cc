@@ -284,9 +284,9 @@ xarray<double> StreamingState::softmaxnorm(xarray<double> rawlogits)
   xarray<double> e_x = exp(rawlogits);
 
   xarray<double> s = view(sum(e_x, 1),
-                            all(),
-                            newaxis());
-  return e_x/s;
+                          all(),
+                          newaxis());
+  return e_x / s;
 }
 
 xarray<double> StreamingState::reshape(vector<float> rawlogits, const int num_classes, const int n_frames)
@@ -310,11 +310,11 @@ void StreamingState::processBatch(const vector<float> &buf, unsigned int n_steps
 
   const size_t num_classes = model_->alphabet_.GetSize() + 1; // +1 for blank
   const int n_frames = logits.size() / (ModelState::BATCH_SIZE * num_classes);
-  
+
   vector<double> kinputs{logits.begin(), logits.end()};
 
   inference_logits_.push_back(logits);
-  
+
   decoder_state_.next(kinputs.data(),
                       n_frames,
                       num_classes);
@@ -364,7 +364,24 @@ SentFitMeta *StreamingState::sentenceFitBeam(const char *target)
     prev_timeframe = prev_timeframe + _time_frames;
   }
 
-  SentenceFit sentfit = SentenceFit(logits, target, DEFAULT_ALPHABET, DEFAULT_FPS);
+  // Generate alphabet with correct mapping order of chars
+  vector<string> model_alphabet;
+  for (int i = 0; i < alpha_sz - 1; i++)
+  {
+    string label = model_->alphabet_.DecodeSingle((unsigned int)i);
+    if (!label.empty())
+    {
+      if (label == " ")
+      {
+        label = "_";
+      }
+      model_alphabet.push_back(label);
+    }
+  }
+  // Add closing blank char
+  model_alphabet.push_back(" ");
+
+  SentenceFit sentfit = SentenceFit(logits, target, model_alphabet, DEFAULT_FPS);
   forcedAlignment_ = sentfit.doFit();
 
   result = sentfit._result_from_alignment(forcedAlignment_);
@@ -386,27 +403,28 @@ SentFitMeta *StreamingState::sentenceFitBeam(const char *target)
 
   SentFitToken *tokens = (SentFitToken *)malloc(sizeof(SentFitToken) * result.size());
   for (int i; i < result.size(); ++i)
-  { 
-    const char* letter;
-    
-    if(letters[i] == "w")
+  {
+    const char *letter;
+
+    if (letters[i] == "w")
     {
-        letter = "w";
-    }else if(letters[i] == "g")
+      letter = "w";
+    }
+    else if (letters[i] == "g")
     {
-        letter= "g";
-    }else
+      letter = "g";
+    }
+    else
     {
       unsigned int u = model_->alphabet_.EncodeSingle(letters[i]);
       letter = strdup(model_->alphabet_.DecodeSingle(u).c_str());
     }
 
     SentFitToken token{
-        .confidence = conf[i],    
+        .confidence = conf[i],
         .frames = lframes[i],
         .letter = letter,
-        .timestep = lframes[i] * ((float)model_->audio_win_step_ / model_->sample_rate_)
-    };
+        .timestep = lframes[i] * ((float)model_->audio_win_step_ / model_->sample_rate_)};
     memcpy(&tokens[i], &token, sizeof(SentFitToken));
   }
 
