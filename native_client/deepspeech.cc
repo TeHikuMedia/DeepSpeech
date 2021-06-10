@@ -369,11 +369,10 @@ SentFitMeta *StreamingState::sentenceFitBeam(const char *target)
   for (int i = 0; i < alpha_sz - 1; i++)
   {
     string label = model_->alphabet_.DecodeSingle((unsigned int)i);
+    if (label == " ")
     {
-      if (label == " ")
-      {
-        model_alphabet.push_back(" ");
-      }
+      model_alphabet.push_back(" ");
+    }
   }
   // Add closing blank char
   model_alphabet.push_back(" ");
