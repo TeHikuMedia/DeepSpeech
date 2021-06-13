@@ -764,10 +764,10 @@ def create_inference_graph(batch_size=1, n_steps=16, tflite=False, representatio
     new_state_c, new_state_h = layers['rnn_output_state']
     new_state_c = tf.identity(new_state_c, name='new_state_c')
     new_state_h = tf.identity(new_state_h, name='new_state_h')
-    representation = tf.reshape(layers['layer_5'], [-1, batch_size, Config.n_hidden_5], name='representation')
+    representation = tf.reshape(layers['layer_5'], [-1, batch_size, Config.n_hidden_5], name='representation_raw')
     
     if tflite:
-        representation = tf.squeeze(representation, [1])
+        representation = tf.squeeze(representation, [1], name = 'representation')
 
     inputs = {
         'input': input_tensor,
