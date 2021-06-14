@@ -773,7 +773,7 @@ def create_inference_graph(batch_size=1, n_steps=16, tflite=False, representatio
         'input': input_tensor,
         'previous_state_c': previous_state_c,
         'previous_state_h': previous_state_h,
-        'input_samples': input_samples,
+        'input_samples': input_samples
     }
 
     if not FLAGS.export_tflite:
