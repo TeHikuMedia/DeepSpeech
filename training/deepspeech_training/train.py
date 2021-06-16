@@ -711,6 +711,8 @@ def create_inference_graph(batch_size=1, n_steps=16, tflite=False, representatio
     input_tensor = tfv1.placeholder(tf.float32, [batch_size, n_steps if n_steps > 0 else None, 2 * Config.n_context + 1, Config.n_input], name='input_node')
     seq_length = tfv1.placeholder(tf.int32, [batch_size], name='input_lengths')
 
+    input_batch = tf.identity(input_tensor, name='input_batch')
+
     if batch_size <= 0:
         # no state management since n_step is expected to be dynamic too (see below)
         previous_state = None
@@ -773,7 +775,8 @@ def create_inference_graph(batch_size=1, n_steps=16, tflite=False, representatio
         'input': input_tensor,
         'previous_state_c': previous_state_c,
         'previous_state_h': previous_state_h,
-        'input_samples': input_samples
+        'input_samples': input_samples,
+        'input_lengths': seq_length
     }
 
     if not FLAGS.export_tflite:
@@ -783,8 +786,12 @@ def create_inference_graph(batch_size=1, n_steps=16, tflite=False, representatio
         'outputs': logits,
         'new_state_c': new_state_c,
         'new_state_h': new_state_h,
-        'mfccs': mfccs,
+        'mfccs': mfccs ,
+        'input_batch': input_batch # ,
+        # 'seq_length': seq_length
     }
+
+
 
     if representations:
         outputs['representation'] = representation
@@ -804,7 +811,7 @@ def export(representations=False):
     '''
     log_info('Exporting the model...')
 
-    inputs, outputs, _ = create_inference_graph(batch_size=FLAGS.export_batch_size, n_steps=FLAGS.n_steps, tflite=FLAGS.export_tflite, representations=representations)
+    inputs, outputs, _ = create_inference_graph(batch_size=1, n_steps=1, tflite=FLAGS.export_tflite, representations=representations)
 
     graph_version = int(file_relative_read('GRAPH_VERSION').strip())
     assert graph_version > 0
