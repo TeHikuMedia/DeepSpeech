@@ -697,18 +697,24 @@ def test():
 
 def create_inference_graph(batch_size=1, n_steps=16, tflite=False, representations=False):
     batch_size = batch_size if batch_size > 0 else None
-
-    # Create feature computation graph
+    
     input_samples = tfv1.placeholder(tf.float32, [Config.audio_window_samples], 'input_samples')
     samples = tf.expand_dims(input_samples, -1)
     mfccs, _ = audio_to_features(samples, FLAGS.audio_sample_rate)
     mfccs = tf.identity(mfccs, name='mfccs')
 
+    if representations:
+        features = tf.expand_dims(mfccs, 0)
+        features = create_overlapping_windows(features)
+        input_tensor = tf.identity(features, name='input_node')
+    
+    else:
+        input_tensor = tfv1.placeholder(tf.float32, [batch_size, n_steps if n_steps > 0 else None, 2 * Config.n_context + 1, Config.n_input], name='input_node')
+
     # Input tensor will be of shape [batch_size, n_steps, 2*n_context+1, n_input]
     # This shape is read by the native_client in DS_CreateModel to know the
     # value of n_steps, n_context and n_input. Make sure you update the code
     # there if this shape is changed.
-    input_tensor = tfv1.placeholder(tf.float32, [batch_size, n_steps if n_steps > 0 else None, 2 * Config.n_context + 1, Config.n_input], name='input_node')
     seq_length = tfv1.placeholder(tf.int32, [batch_size], name='input_lengths')
 
     input_batch = tf.identity(input_tensor, name='input_batch')
@@ -771,30 +777,40 @@ def create_inference_graph(batch_size=1, n_steps=16, tflite=False, representatio
     if tflite:
         representation = tf.squeeze(representation, [1], name = 'representation')
 
-    inputs = {
-        'input': input_tensor,
-        'previous_state_c': previous_state_c,
-        'previous_state_h': previous_state_h,
-        'input_samples': input_samples,
-        'input_lengths': seq_length
-    }
+    if representations:
+        inputs = {
+            'input_samples': input_samples,
+            'previous_state_c': previous_state_c,
+            'previous_state_h': previous_state_h
+        }
+
+        outputs = {
+            'outputs': logits,
+            'representation': representation,
+            'input_batch': input_batch
+        }
+
+    else:
+        inputs = {
+            'input': input_tensor,
+            'previous_state_c': previous_state_c,
+            'previous_state_h': previous_state_h,
+            'input_samples': input_samples,
+        }
+
+        outputs = {
+            'outputs': probs,
+            'new_state_c': new_state_c,
+            'new_state_h': new_state_h,
+            'mfccs': mfccs,
+
+            # Expose internal layers for downstream applications
+            'layer_3': layers['layer_3'],
+            'layer_5': layers['layer_5']
+        }
 
     if not FLAGS.export_tflite:
         inputs['input_lengths'] = seq_length
-
-    outputs = {
-        'outputs': logits,
-        'new_state_c': new_state_c,
-        'new_state_h': new_state_h,
-        'mfccs': mfccs ,
-        'input_batch': input_batch # ,
-        # 'seq_length': seq_length
-    }
-
-
-
-    if representations:
-        outputs['representation'] = representation
 
     return inputs, outputs, layers
 
